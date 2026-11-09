@@ -4,6 +4,8 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Daily maintenance reminders. Requested in context, right after the first schedule is created. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Capturing receipts goes through the system camera app; no CAMERA permission needed. -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
