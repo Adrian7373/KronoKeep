@@ -24,7 +24,7 @@ class AddDocumentUseCaseTest {
     private val db = FakeDb()
     private val files = FakeFileStore()
     private val assets = AssetRepositoryImpl(
-        db.assetDao, db.odometerDao, db.outboxDao, db, fixedClock(), SequentialIds("asset"), FakeUserIds(),
+        db.assetDao, db.odometerDao, db.outboxDao, db, fixedClock(), SequentialIds("asset"), FakeUserIds(), db.recomputer,
     )
     private val documents = DocumentRepositoryImpl(
         db.documentDao, db.outboxDao, db, fixedClock(), FakeUserIds(), FakeStorage(), files, CountingScheduler(),

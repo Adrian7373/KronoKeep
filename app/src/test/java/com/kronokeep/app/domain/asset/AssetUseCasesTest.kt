@@ -18,7 +18,9 @@ import java.time.LocalDate
 class AssetUseCasesTest {
     private val db = FakeDb()
     private val clock = fixedClock() // 2026-11-14
-    private val repo = AssetRepositoryImpl(db.assetDao, db.odometerDao, db.outboxDao, db, clock, SequentialIds(), FakeUserIds())
+    private val repo = AssetRepositoryImpl(
+        db.assetDao, db.odometerDao, db.outboxDao, db, clock, SequentialIds(), FakeUserIds(), db.recomputer,
+    )
     private val create = CreateAssetUseCase(repo, clock)
     private val update = UpdateAssetUseCase(repo, clock)
 

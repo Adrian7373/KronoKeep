@@ -4,12 +4,18 @@ import com.kronokeep.app.data.document.LocalFileStore
 import com.kronokeep.app.data.local.TransactionRunner
 import com.kronokeep.app.data.local.dao.AssetDao
 import com.kronokeep.app.data.local.dao.DocumentDao
+import com.kronokeep.app.data.local.dao.MaintenanceScheduleDao
 import com.kronokeep.app.data.local.dao.OdometerReadingDao
 import com.kronokeep.app.data.local.dao.OutboxDao
+import com.kronokeep.app.data.local.dao.ServiceLogDao
+import com.kronokeep.app.data.local.dao.ServiceLogWithTask
 import com.kronokeep.app.data.local.entity.AssetEntity
 import com.kronokeep.app.data.local.entity.DocumentEntity
+import com.kronokeep.app.data.local.entity.MaintenanceScheduleEntity
 import com.kronokeep.app.data.local.entity.OdometerReadingEntity
 import com.kronokeep.app.data.local.entity.OutboxEntity
+import com.kronokeep.app.data.local.entity.ServiceLogEntity
+import com.kronokeep.app.data.repository.ScheduleRecomputer
 import com.kronokeep.app.data.remote.DocumentStorage
 import com.kronokeep.app.data.repository.UploadScheduler
 import com.kronokeep.app.data.repository.UserIdProvider
@@ -46,6 +52,8 @@ class FakeDb : TransactionRunner {
     private val assets = MutableStateFlow<Map<String, AssetEntity>>(emptyMap())
     private val readings = MutableStateFlow<Map<String, OdometerReadingEntity>>(emptyMap())
     private val documents = MutableStateFlow<Map<String, DocumentEntity>>(emptyMap())
+    private val schedules = MutableStateFlow<Map<String, MaintenanceScheduleEntity>>(emptyMap())
+    private val logs = MutableStateFlow<Map<String, ServiceLogEntity>>(emptyMap())
     private val outbox = MutableStateFlow<List<OutboxEntity>>(emptyList())
     private var seq = 0L
     private var depth = 0
@@ -60,11 +68,13 @@ class FakeDb : TransactionRunner {
     val assetRows: Map<String, AssetEntity> get() = assets.value
     val readingRows: List<OdometerReadingEntity> get() = readings.value.values.toList()
     val documentRows: Map<String, DocumentEntity> get() = documents.value
+    val scheduleRows: Map<String, MaintenanceScheduleEntity> get() = schedules.value
+    val logRows: Map<String, ServiceLogEntity> get() = logs.value
     val outboxRows: List<OutboxEntity> get() = outbox.value
 
     override suspend fun <T> inTransaction(block: suspend () -> T): T {
         if (depth > 0) return block()
-        val snapshot = listOf(assets.value, readings.value, documents.value, outbox.value)
+        val snapshot = listOf(assets.value, readings.value, documents.value, outbox.value, schedules.value, logs.value)
         depth++
         transactionCount++
         try {
@@ -76,6 +86,8 @@ class FakeDb : TransactionRunner {
                 readings.value = snapshot[1] as Map<String, OdometerReadingEntity>
                 documents.value = snapshot[2] as Map<String, DocumentEntity>
                 outbox.value = snapshot[3] as List<OutboxEntity>
+                schedules.value = snapshot[4] as Map<String, MaintenanceScheduleEntity>
+                logs.value = snapshot[5] as Map<String, ServiceLogEntity>
             }
             throw e
         } finally {
@@ -93,6 +105,55 @@ class FakeDb : TransactionRunner {
 
     fun putDocument(entity: DocumentEntity) {
         documents.value = documents.value + (entity.id to entity)
+    }
+
+    fun putReading(entity: OdometerReadingEntity) {
+        readings.value = readings.value + (entity.id to entity)
+    }
+
+    fun putLog(entity: ServiceLogEntity) {
+        logs.value = logs.value + (entity.id to entity)
+    }
+
+    val recomputer: ScheduleRecomputer by lazy { ScheduleRecomputer(assetDao, scheduleDao, odometerDao, outboxDao) }
+
+    val scheduleDao = object : MaintenanceScheduleDao {
+        private fun live() = schedules.value.values.filter { it.deletedAt == null }
+
+        override fun observeForAsset(assetId: String): Flow<List<MaintenanceScheduleEntity>> = schedules.map { m ->
+            m.values.filter { it.assetId == assetId && it.deletedAt == null }.sortedBy { it.createdAt }
+        }
+
+        override fun observeAll(): Flow<List<MaintenanceScheduleEntity>> = schedules.map { m -> m.values.filter { it.deletedAt == null } }
+
+        override suspend fun forAsset(assetId: String): List<MaintenanceScheduleEntity> = live().filter { it.assetId == assetId }
+
+        override suspend fun getById(id: String): MaintenanceScheduleEntity? = schedules.value[id]
+
+        override suspend fun assetIdsWithSchedules(): List<String> = live().map { it.assetId }.distinct()
+
+        override suspend fun upsert(schedule: MaintenanceScheduleEntity) {
+            write("maintenance_schedules")
+            schedules.value = schedules.value + (schedule.id to schedule)
+        }
+    }
+
+    val serviceLogDao = object : ServiceLogDao {
+        override fun observeForAsset(assetId: String): Flow<List<ServiceLogWithTask>> = logs.map { m ->
+            m.values.filter { it.assetId == assetId && it.deletedAt == null }
+                .sortedWith(compareByDescending<ServiceLogEntity> { it.performedAt }.thenBy { it.createdAt })
+                .map { ServiceLogWithTask(it, it.scheduleId?.let { id -> schedules.value[id]?.task }) }
+        }
+
+        override suspend fun getById(id: String): ServiceLogEntity? = logs.value[id]
+
+        override suspend fun latestForSchedule(scheduleId: String): ServiceLogEntity? =
+            logs.value.values.filter { it.scheduleId == scheduleId && it.deletedAt == null }.maxByOrNull { it.performedAt }
+
+        override suspend fun upsert(log: ServiceLogEntity) {
+            write("service_logs")
+            logs.value = logs.value + (log.id to log)
+        }
     }
 
     val assetDao = object : AssetDao {
@@ -117,6 +178,14 @@ class FakeDb : TransactionRunner {
     val odometerDao = object : OdometerReadingDao {
         override suspend fun forAsset(assetId: String): List<OdometerReadingEntity> =
             readings.value.values.filter { it.assetId == assetId && it.deletedAt == null }.sortedBy { it.recordedAt }
+
+        override fun observeForAsset(assetId: String): Flow<List<OdometerReadingEntity>> = readings.map { m ->
+            m.values.filter { it.assetId == assetId && it.deletedAt == null }.sortedBy { it.recordedAt }
+        }
+
+        override fun observeAll(): Flow<List<OdometerReadingEntity>> = readings.map { m ->
+            m.values.filter { it.deletedAt == null }.sortedBy { it.recordedAt }
+        }
 
         override suspend fun upsert(reading: OdometerReadingEntity) {
             write("odometer_readings")

@@ -1,6 +1,7 @@
 package com.kronokeep.app.data.local.dao
 
 import androidx.room.Dao
+import androidx.room.Embedded
 import androidx.room.Query
 import androidx.room.Upsert
 import com.kronokeep.app.data.local.entity.AssetEntity
@@ -32,17 +33,50 @@ interface AssetDao {
 
 @Dao
 interface MaintenanceScheduleDao {
-    @Query("SELECT * FROM maintenance_schedules WHERE assetId = :assetId AND deletedAt IS NULL ORDER BY nextDueAt")
+    @Query("SELECT * FROM maintenance_schedules WHERE assetId = :assetId AND deletedAt IS NULL ORDER BY createdAt")
     fun observeForAsset(assetId: String): Flow<List<MaintenanceScheduleEntity>>
+
+    @Query("SELECT * FROM maintenance_schedules WHERE deletedAt IS NULL")
+    fun observeAll(): Flow<List<MaintenanceScheduleEntity>>
+
+    @Query("SELECT * FROM maintenance_schedules WHERE assetId = :assetId AND deletedAt IS NULL")
+    suspend fun forAsset(assetId: String): List<MaintenanceScheduleEntity>
+
+    /** Includes soft-deleted rows; callers check `deletedAt`. */
+    @Query("SELECT * FROM maintenance_schedules WHERE id = :id")
+    suspend fun getById(id: String): MaintenanceScheduleEntity?
+
+    @Query("SELECT DISTINCT assetId FROM maintenance_schedules WHERE deletedAt IS NULL")
+    suspend fun assetIdsWithSchedules(): List<String>
 
     @Upsert
     suspend fun upsert(schedule: MaintenanceScheduleEntity)
 }
 
+/** A log row plus its schedule's task name. The join ignores `deletedAt` so history keeps names of removed schedules. */
+data class ServiceLogWithTask(
+    @Embedded val log: ServiceLogEntity,
+    val task: String?,
+)
+
 @Dao
 interface ServiceLogDao {
-    @Query("SELECT * FROM service_logs WHERE assetId = :assetId AND deletedAt IS NULL ORDER BY performedAt DESC")
-    fun observeForAsset(assetId: String): Flow<List<ServiceLogEntity>>
+    @Query(
+        """
+        SELECT l.*, s.task AS task FROM service_logs l
+        LEFT JOIN maintenance_schedules s ON s.id = l.scheduleId
+        WHERE l.assetId = :assetId AND l.deletedAt IS NULL
+        ORDER BY l.performedAt DESC, l.createdAt
+        """,
+    )
+    fun observeForAsset(assetId: String): Flow<List<ServiceLogWithTask>>
+
+    /** Includes soft-deleted rows; callers check `deletedAt`. */
+    @Query("SELECT * FROM service_logs WHERE id = :id")
+    suspend fun getById(id: String): ServiceLogEntity?
+
+    @Query("SELECT * FROM service_logs WHERE scheduleId = :scheduleId AND deletedAt IS NULL ORDER BY performedAt DESC LIMIT 1")
+    suspend fun latestForSchedule(scheduleId: String): ServiceLogEntity?
 
     @Upsert
     suspend fun upsert(log: ServiceLogEntity)
@@ -52,6 +86,12 @@ interface ServiceLogDao {
 interface OdometerReadingDao {
     @Query("SELECT * FROM odometer_readings WHERE assetId = :assetId AND deletedAt IS NULL ORDER BY recordedAt")
     suspend fun forAsset(assetId: String): List<OdometerReadingEntity>
+
+    @Query("SELECT * FROM odometer_readings WHERE assetId = :assetId AND deletedAt IS NULL ORDER BY recordedAt")
+    fun observeForAsset(assetId: String): Flow<List<OdometerReadingEntity>>
+
+    @Query("SELECT * FROM odometer_readings WHERE deletedAt IS NULL ORDER BY recordedAt")
+    fun observeAll(): Flow<List<OdometerReadingEntity>>
 
     @Upsert
     suspend fun upsert(reading: OdometerReadingEntity)
