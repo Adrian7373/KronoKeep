@@ -66,6 +66,8 @@ import com.kronokeep.app.ui.components.EmptyState
 import com.kronokeep.app.ui.components.Formats
 import com.kronokeep.app.ui.components.SyncBadge
 import com.kronokeep.app.ui.theme.KronoTheme
+import com.kronokeep.app.ui.theme.SerialTextStyle
+import androidx.compose.ui.text.TextStyle
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -287,7 +289,11 @@ private fun OverviewCard(asset: Asset) {
                 SyncBadge(asset.syncState)
             }
             asset.serialNo?.let {
-                Fact(if (asset.category == AssetCategory.VEHICLE) "Plate / chassis" else "Serial no.", it)
+                Fact(
+                    if (asset.category == AssetCategory.VEHICLE) "Plate / chassis" else "Serial no.",
+                    it,
+                    valueStyle = SerialTextStyle,
+                )
             }
             if (asset.purchaseDate != null || asset.price != null) {
                 Fact(
@@ -314,7 +320,12 @@ private fun OverviewCard(asset: Asset) {
 }
 
 @Composable
-private fun Fact(label: String, value: String, valueColor: Color = Color.Unspecified) {
+private fun Fact(
+    label: String,
+    value: String,
+    valueColor: Color = Color.Unspecified,
+    valueStyle: TextStyle = MaterialTheme.typography.bodyMedium,
+) {
     Row {
         Text(
             label,
@@ -322,7 +333,7 @@ private fun Fact(label: String, value: String, valueColor: Color = Color.Unspeci
             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
             modifier = Modifier.weight(0.4f),
         )
-        Text(value, style = MaterialTheme.typography.bodyMedium, color = valueColor, modifier = Modifier.weight(0.6f))
+        Text(value, style = valueStyle, color = valueColor, modifier = Modifier.weight(0.6f))
     }
 }
 

@@ -1,7 +1,13 @@
 package com.kronokeep.app.di
 
 import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.room.Room
+import com.kronokeep.app.data.settings.DataStoreSettingsRepository
+import com.kronokeep.app.domain.repository.SettingsRepository
 import com.kronokeep.app.data.document.AndroidDocumentImporter
 import com.kronokeep.app.data.document.DiskFileStore
 import com.kronokeep.app.data.document.LocalFileStore
@@ -71,6 +77,10 @@ object AppModule {
     @Provides fun outboxDao(db: KronoDatabase): OutboxDao = db.outboxDao()
 
     @Provides @Singleton
+    fun provideSettingsDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
+        PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("settings") }
+
+    @Provides @Singleton
     fun provideIdGenerator(): IdGenerator = IdGenerator.Random
 
     @Provides
@@ -93,4 +103,5 @@ abstract class RepositoryModule {
     @Binds abstract fun bindLocalFileStore(impl: DiskFileStore): LocalFileStore
     @Binds abstract fun bindTransactionRunner(impl: RoomTransactionRunner): TransactionRunner
     @Binds abstract fun bindUploadScheduler(impl: WorkManagerUploadScheduler): UploadScheduler
+    @Binds abstract fun bindSettingsRepository(impl: DataStoreSettingsRepository): SettingsRepository
 }
