@@ -144,25 +144,27 @@ Status key: ✅ done · 🔨 in progress · ⏳ not started
 - [x] Document viewer: local copy first, otherwise a 10-minute signed URL fetched into memory (Coil memory and disk caches off; remote PDFs go to a temp file deleted on close)
 - [x] Tests: 59 new JVM tests (69 total) plus a 3-test Compose `AddAssetFlowTest`, passing on an API 37 emulator
 
+**Phase 3: Maintenance engine ✅** (2026-11-09, `feat/m3-maintenance-engine` from `feat/m2-assets-documents`, commits `10052cb`…`08cd09a`; not yet merged)
+
+Agreed decisions: time-decay EWMA (per-interval km/day weighted by a 30-day half-life; baseline only below 2 readings; confidence from reading count, recency and rate variance). Presets show up as a "Suggested schedules" wizard step and as "Add from preset" / "Custom" on the Schedule tab. Aircon default is 3 months. One service visit can tick several tasks (one `service_logs` row per task, cost on the first) or be an ad-hoc repair. New schedules default "last done" to today and the current odometer. Odometer nudges: dashboard card and detail highlight after 7 days, a notification after 14. Reminders: daily WorkManager job around 08:00 local, one notification per status change; `POST_NOTIFICATIONS` is requested when the first schedule is created; Settings has an on/off toggle.
+- [x] `domain/engine`: `MaintenanceEngine` (pure, `now` passed in, maths in epoch-ms doubles rounded to whole seconds so TS can match exactly). Readings under 1 day apart are skipped; a lower reading restarts the series; usage projects from the latest reading, so due dates don't drift day to day without new data. A reading already past the due km counts as observed overdue (confidence 1). Output includes `uncertaintyDays` (± window) and `projectedKm`.
+- [x] `engine-fixtures/`: 10 JSON cases plus a README (format, tolerances). Expected values were worked out by hand or computed separately, not copied from engine output. `EngineFixturesTest` runs them all.
+- [x] `domain/presets` (scooter, car, aircon, water filter; whole-word name/brand/model hints pick a default). Schedule add/edit/delete, multi-task service visits, delete log (blocked when `lockedAt` is set), odometer update (can't go backwards). `ScheduleRecomputer` re-runs the engine inside each write transaction and persists due fields with an outbox row (confidence only when it moves by 0.05 or more, to avoid sync churn). Room schema is unchanged (still v1), and there's no new migration.
+- [x] UI: wizard "Suggested schedules" step (vehicles: step 4 of 4, appliances: step 3 of 3, electronics skip it); Schedule tab (odometer card with rate and confidence, status pills, "Due in N days ± M d", preset sheet, custom editor); History tab (task names survive schedule deletion, lock icon, total spent); Log service screen; odometer dialog.
+- [x] Dashboard: headline (overdue / due soon / all clear), overdue, due soon, next 3 upcoming, stale odometers, warranties (60 days ahead, 30 days after expiry). Predictions are computed live from Room, not read from stored fields.
+- [x] Daily `ReminderWorker` (KEEP periodic, initial delay to 08:00). `ReminderRunner` recomputes, plans with the pure `ReminderPlanner`, posts one digest notification, and saves a DataStore ledger only after posting, so blocked notifications aren't lost. Recompute also runs on app start.
+- [x] Tests: engine, fixtures, validator, presets, use cases, repository (transactions, rollback, back-dated logs, lock, revert on delete), recompute, planner, dashboard, settings and ledger. Compose: `AddAssetFlowTest` (4 tests, now including the schedules step) and the new `LogServiceFlowTest` (2 tests), passing on an API 37 emulator.
+
 ### Current
 
-**Phase 3: Maintenance engine 🔨** (branch `feat/m3-maintenance-engine`, from `feat/m2-assets-documents`)
-
-Agreed decisions: time-decay EWMA (per-interval km/day weighted by a 30-day half-life; baseline only below 2 readings; confidence from reading count, recency and rate variance). Presets show up as a "Suggested schedules" wizard step and as "Add from preset" / "Custom" on the Schedule tab. Reminders: daily WorkManager job around 08:00 local, one notification per status change; `POST_NOTIFICATIONS` is requested when the first schedule is created; Settings has an on/off toggle.
-- [ ] `domain/engine`: calendar and usage triggers, EWMA km/day, confidence, status bands
-- [ ] `engine-fixtures/*.json`, shared with the TypeScript engine in Phase 5
-- [ ] `domain/presets` (PH scooter, car, aircon, water filter), schedule CRUD, log service, odometer quick update
-- [ ] Dashboard: overdue, due soon, warranties expiring
-- [ ] Daily WorkManager job for local notifications (works offline)
-
-### Future
-
-**Phase 4: Sync ⏳**
+**Phase 4: Sync ⏳** (next up; branch `feat/m4-sync` from `feat/m3-maintenance-engine`)
 - [ ] `SyncWorker`: push the outbox, then pull by `updated_at > lastSyncedAt` (paged)
 - [ ] Last-write-wins conflict handling, soft-delete propagation, `syncState` in the UI
 - [ ] Claim offline rows (`userId = null`) on first sign-in, then kick `UploadScheduler` (the uploader only takes rows owned by the signed-in user)
 - [ ] Hold back `documents` outbox entries until `storagePath` is set (the server column is NOT NULL)
 - [ ] Optional: delete orphaned storage objects for soft-deleted documents
+
+### Future
 
 **Phase 5: Server engine ⏳**
 - [ ] `supabase/functions/_shared/engine.ts`, passing the same fixtures as the Kotlin engine
@@ -188,5 +190,7 @@ Agreed decisions: time-decay EWMA (per-interval km/day weighted by a 30-day half
 ### Backlog (v2 / deferred)
 - Household sharing (shared vaults). Deferred because it changes every RLS policy.
 - Configurable units and currency (km/mi, non-PHP).
+- Editing a service log in place (Phase 3 ships delete plus re-log). Deferred because a multi-task visit is several rows, and editing one needs a "visit" grouping the schema doesn't have yet.
+- Deep-linking a reminder notification to the asset (it opens the app for now). Deferred to Phase 5 with the FCM notification actions.
 
-**Current state:** Phases 1 and 2 are done and committed (`feat/m1-foundation`, `feat/m2-assets-documents`, neither merged). Phase 3 is in progress on `feat/m3-maintenance-engine`.
+**Current state:** Phases 1–3 are done, committed and pushed (`feat/m1-foundation`, `feat/m2-assets-documents`, `feat/m3-maintenance-engine`; none merged to `main`). Phase 4 (sync) is next.
