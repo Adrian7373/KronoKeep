@@ -110,17 +110,79 @@ To add a screen, add a route in `navigation/Routes.kt`, then add an `entry<...>`
 - First-version extras: receipt OCR (ML Kit, on-device), barcode/serial scan, odometer update prompts. **Household sharing is deferred to v2.**
 - The PDF is generated **server-side** (Edge Function `generate-report`). Public `verify-report?id=` returns Valid / Revoked / Not found. Share links expire after 7 days.
 
-## Roadmap
+## Phase tracker
 
-1. **Foundation**: Gradle, Hilt, theme, navigation shell, Room schema, Supabase client, auth, SQL migrations and RLS ← *current*
-2. Assets and documents: CRUD, storage with signed URLs, upload queue
-3. Maintenance engine: Kotlin engine and fixtures, schedules, presets, odometer readings, local notifications
-4. Sync: outbox, `SyncWorker`, conflict handling
-5. Server engine: `recompute-due`, `pg_cron`, FCM
-6. Verified PDF: `generate-report`, `verify-report`
-7. Smart capture: OCR, barcode scanning
-8. Polish and portfolio: GitHub Actions CI, README with architecture diagram, demo video, seeded demo account
+**Keep this section up to date. It is the single record of project progress.**
+- When a task inside a phase lands, tick its box (`[x]`).
+- When a phase is finished (build and tests pass), move it to **Completed**. Add the date, the branch, the final commit, and a short note of what was actually built. Then promote the next phase to **Current**.
+- Work that gets deferred or cut moves to **Backlog** with a one-line reason. It is never silently dropped.
+- Update this tracker in the same change as the work it describes.
 
-Keep the **Current state** line below up to date when a milestone lands.
+Status key: ✅ done · 🔨 in progress · ⏳ not started
 
-**Current state:** Milestone 1 in progress on `feat/m1-foundation`.
+### Completed
+
+**Phase 1: Foundation ✅** (2026-11-09, `feat/m1-foundation`, commit `e7bf2e1`; not yet merged to `main`)
+- [x] Gradle setup: AGP 9.5 with built-in Kotlin, version catalog, KSP for Hilt and Room
+- [x] Hilt DI (`di/AppModule.kt`): app scope, injected `Clock`, database and DAOs, repository bindings
+- [x] Room schema v1, mirroring Postgres: assets, schedules, service logs, odometer readings, documents, outbox. Exported to `app/schemas/`.
+- [x] Supabase client via `SupabaseProvider`. It's null when `local.properties` has no keys, and the app then runs offline with a banner.
+- [x] Email auth: `AuthRepository`, plus `AuthScreen` and `AuthViewModel`
+- [x] App shell: vault theme (teal and brass, status colours), Navigation 3 with one back stack per tab, Dashboard / Assets / Settings placeholders
+- [x] `Peso` value class (centavos), with formatting and parsing tests
+- [x] Migration `20261109000000_init.sql`: tables, RLS (including `owns_asset` checks on child tables), locked-log trigger, `reports` writable only on `revoked_at`, private `documents` and `reports` buckets with owner-folder policies
+- [x] Unit tests: `PesoTest`, `ConvertersTest`, `AuthValidationTest` (10 passing)
+
+### Current
+
+**Phase 2: Assets and documents 🔨** (branch `feat/m2-assets-documents`; all work done, build and tests pass, **not committed yet**)
+- [x] Domain: create, update, archive and soft-delete asset use cases, with validation (`domain/asset/`, limits mirror the SQL CHECKs)
+- [x] Repository writes: Room plus an outbox row in one transaction, with `syncState = PENDING` (`TransactionRunner` seam; outbox coalesces to one entry per row)
+- [x] Add-asset wizard: category → details (brand, model, serial, purchase date, price in ₱, warranty) → baselines (odometer, weekly km). Non-vehicles skip baselines; the first odometer value seeds an `odometer_readings` row.
+- [x] Asset detail screen with tabs: Schedule · History · Documents (Schedule and History are placeholders until Phase 3)
+- [x] Edit, archive and delete asset (category is fixed after creation; archived list toggle on the Assets tab)
+- [x] Documents: system camera (FileProvider, no CAMERA permission), photo picker, document picker; EXIF-rotated, ≤2048 px, JPEG 85, SHA-256, `files/documents/{docId}.ext`
+- [x] Upload queue (WorkManager, custom `WorkerFactory` without hilt-work): signed upload URL → `{user}/{asset}/{doc}.{ext}` → `storage_path`, then the local copy is deleted. Unit-tested with fakes; **not yet exercised against a live Supabase project**.
+- [x] Document viewer: local copy first, otherwise a 10-minute signed URL fetched into memory (Coil memory and disk caches off; remote PDFs go to a temp file deleted on close)
+- [x] Tests: 59 new JVM tests (69 total) plus a 3-test Compose `AddAssetFlowTest`, passing on an API 37 emulator
+
+### Future
+
+**Phase 3: Maintenance engine ⏳**
+- [ ] `domain/engine`: calendar and usage triggers, EWMA km/day, confidence, status bands
+- [ ] `engine-fixtures/*.json`, shared with the TypeScript engine in Phase 5
+- [ ] `domain/presets` (PH scooter, car, aircon, water filter), schedule CRUD, log service, odometer quick update
+- [ ] Dashboard: overdue, due soon, warranties expiring
+- [ ] Daily WorkManager job for local notifications (works offline)
+
+**Phase 4: Sync ⏳**
+- [ ] `SyncWorker`: push the outbox, then pull by `updated_at > lastSyncedAt` (paged)
+- [ ] Last-write-wins conflict handling, soft-delete propagation, `syncState` in the UI
+- [ ] Claim offline rows (`userId = null`) on first sign-in, then kick `UploadScheduler` (the uploader only takes rows owned by the signed-in user)
+- [ ] Hold back `documents` outbox entries until `storagePath` is set (the server column is NOT NULL)
+- [ ] Optional: delete orphaned storage objects for soft-deleted documents
+
+**Phase 5: Server engine ⏳**
+- [ ] `supabase/functions/_shared/engine.ts`, passing the same fixtures as the Kotlin engine
+- [ ] `recompute-due` Edge Function, run hourly by `pg_cron`
+- [ ] FCM: device token registration, a reminder log so each reminder is sent once, notification actions
+
+**Phase 6: Verified PDF ⏳**
+- [ ] `generate-report`: canonical JSON → SHA-256 → lock logs → `pdf-lib` PDF with QR code → `reports` row
+- [ ] Public `verify-report?id=` (Valid / Revoked / Not found)
+- [ ] Export and share screen: 7-day signed link, revoke
+
+**Phase 7: Smart capture ⏳**
+- [ ] Receipt OCR (ML Kit) to fill in the date, store, price and serial number
+- [ ] Barcode/serial scan (CameraX + ML Kit)
+
+**Phase 8: Polish and portfolio ⏳**
+- [ ] GitHub Actions CI: lint, unit tests, `assembleDebug`
+- [ ] RLS tests in SQL (one user can't read or write another's rows or files)
+- [ ] README with architecture diagram and screenshots, demo video, seeded demo account
+
+### Backlog (v2 / deferred)
+- Household sharing (shared vaults). Deferred because it changes every RLS policy.
+- Configurable units and currency (km/mi, non-PHP).
+
+**Current state:** Phase 1 is done and committed on `feat/m1-foundation` (not merged). Phase 2 is implemented on `feat/m2-assets-documents` (branched from `feat/m1-foundation`): build, unit tests and Compose tests pass, and it is waiting to be committed. Once it is, move it to Completed with the commit hash.
