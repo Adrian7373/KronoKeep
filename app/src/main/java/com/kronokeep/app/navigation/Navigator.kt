@@ -14,6 +14,13 @@ class Navigator(val state: NavigationState) {
         }
     }
 
+    /** Swaps the top of the current tab's stack, e.g. the add wizard for the asset it just created. */
+    fun replaceTop(route: NavKey) {
+        val stack = state.backStacks[state.topLevelRoute] ?: return
+        if (stack.size > 1) stack.removeLastOrNull()
+        stack.add(route)
+    }
+
     fun goBack() {
         val stack = state.backStacks[state.topLevelRoute]
             ?: error("Stack for ${state.topLevelRoute} not found")

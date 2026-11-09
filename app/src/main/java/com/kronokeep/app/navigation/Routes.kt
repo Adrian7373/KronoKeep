@@ -9,4 +9,7 @@ import kotlinx.serialization.Serializable
 @Serializable data object SettingsRoute : NavKey
 
 // ---- Sub-routes (pushed onto the current tab's back stack) ----
-// Milestone 2+: AssetDetailRoute(assetId), AddAssetRoute, LogServiceRoute(assetId), ...
+@Serializable data object AddAssetRoute : NavKey
+@Serializable data class AssetDetailRoute(val assetId: String) : NavKey
+@Serializable data class EditAssetRoute(val assetId: String) : NavKey
+@Serializable data class DocumentViewerRoute(val documentId: String) : NavKey

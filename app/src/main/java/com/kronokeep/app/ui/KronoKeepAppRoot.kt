@@ -12,7 +12,10 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -25,12 +28,22 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.kronokeep.app.domain.repository.AuthState
+import com.kronokeep.app.navigation.AddAssetRoute
+import com.kronokeep.app.navigation.AssetDetailRoute
 import com.kronokeep.app.navigation.AssetsRoute
+import com.kronokeep.app.navigation.DocumentViewerRoute
+import com.kronokeep.app.navigation.EditAssetRoute
 import com.kronokeep.app.navigation.DashboardRoute
 import com.kronokeep.app.navigation.Navigator
 import com.kronokeep.app.navigation.SettingsRoute
 import com.kronokeep.app.navigation.rememberNavigationState
 import com.kronokeep.app.ui.assets.AssetsScreen
+import com.kronokeep.app.ui.assets.detail.AssetDetailScreen
+import com.kronokeep.app.ui.assets.detail.AssetDetailViewModel
+import com.kronokeep.app.ui.assets.editor.AssetEditorScreen
+import com.kronokeep.app.ui.assets.editor.AssetEditorViewModel
+import com.kronokeep.app.ui.documents.DocumentViewerScreen
+import com.kronokeep.app.ui.documents.DocumentViewerViewModel
 import com.kronokeep.app.ui.auth.AuthScreen
 import com.kronokeep.app.ui.dashboard.DashboardScreen
 import com.kronokeep.app.ui.settings.SettingsScreen
@@ -68,11 +81,49 @@ private fun MainShell(cloudConfigured: Boolean) {
 
     val entryProvider = entryProvider<NavKey> {
         entry<DashboardRoute> { DashboardScreen(cloudConfigured = cloudConfigured) }
-        entry<AssetsRoute> { AssetsScreen() }
+        entry<AssetsRoute> {
+            AssetsScreen(
+                onAddAsset = { navigator.navigate(AddAssetRoute) },
+                onOpenAsset = { navigator.navigate(AssetDetailRoute(it)) },
+            )
+        }
         entry<SettingsRoute> { SettingsScreen() }
+        entry<AddAssetRoute> {
+            AssetEditorScreen(
+                viewModel = hiltViewModel<AssetEditorViewModel, AssetEditorViewModel.Factory> { it.create(null) },
+                onSaved = { id -> navigator.replaceTop(AssetDetailRoute(id)) },
+                onClose = navigator::goBack,
+            )
+        }
+        entry<EditAssetRoute> { key ->
+            AssetEditorScreen(
+                viewModel = hiltViewModel<AssetEditorViewModel, AssetEditorViewModel.Factory> { it.create(key.assetId) },
+                onSaved = { navigator.goBack() },
+                onClose = navigator::goBack,
+            )
+        }
+        entry<AssetDetailRoute> { key ->
+            AssetDetailScreen(
+                viewModel = hiltViewModel<AssetDetailViewModel, AssetDetailViewModel.Factory> { it.create(key.assetId) },
+                onBack = navigator::goBack,
+                onEdit = { navigator.navigate(EditAssetRoute(it)) },
+                onOpenDocument = { navigator.navigate(DocumentViewerRoute(it)) },
+            )
+        }
+        entry<DocumentViewerRoute> { key ->
+            DocumentViewerScreen(
+                viewModel = hiltViewModel<DocumentViewerViewModel, DocumentViewerViewModel.Factory> { it.create(key.documentId) },
+                onBack = navigator::goBack,
+            )
+        }
     }
 
+    // Pushed screens (wizard, detail, viewer) go full-screen: no tab bar, and their own insets stay correct.
+    val onTabRoot = navigationState.backStacks[navigationState.topLevelRoute]?.size == 1
+    val adaptiveLayout = NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(currentWindowAdaptiveInfoV2())
+
     NavigationSuiteScaffold(
+        layoutType = if (onTabRoot) adaptiveLayout else NavigationSuiteType.None,
         navigationSuiteItems = {
             TOP_LEVEL_DESTINATIONS.forEach { destination ->
                 val selected = navigationState.topLevelRoute == destination.route
