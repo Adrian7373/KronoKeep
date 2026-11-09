@@ -133,9 +133,7 @@ Status key: ✅ done · 🔨 in progress · ⏳ not started
 - [x] Migration `20261109000000_init.sql`: tables, RLS (including `owns_asset` checks on child tables), locked-log trigger, `reports` writable only on `revoked_at`, private `documents` and `reports` buckets with owner-folder policies
 - [x] Unit tests: `PesoTest`, `ConvertersTest`, `AuthValidationTest` (10 passing)
 
-### Current
-
-**Phase 2: Assets and documents 🔨** (branch `feat/m2-assets-documents`; all work done, build and tests pass, **not committed yet**)
+**Phase 2: Assets and documents ✅** (2026-11-09, `feat/m2-assets-documents`, commit `e12213d`; not yet merged)
 - [x] Domain: create, update, archive and soft-delete asset use cases, with validation (`domain/asset/`, limits mirror the SQL CHECKs)
 - [x] Repository writes: Room plus an outbox row in one transaction, with `syncState = PENDING` (`TransactionRunner` seam; outbox coalesces to one entry per row)
 - [x] Add-asset wizard: category → details (brand, model, serial, purchase date, price in ₱, warranty) → baselines (odometer, weekly km). Non-vehicles skip baselines; the first odometer value seeds an `odometer_readings` row.
@@ -146,14 +144,18 @@ Status key: ✅ done · 🔨 in progress · ⏳ not started
 - [x] Document viewer: local copy first, otherwise a 10-minute signed URL fetched into memory (Coil memory and disk caches off; remote PDFs go to a temp file deleted on close)
 - [x] Tests: 59 new JVM tests (69 total) plus a 3-test Compose `AddAssetFlowTest`, passing on an API 37 emulator
 
-### Future
+### Current
 
-**Phase 3: Maintenance engine ⏳**
+**Phase 3: Maintenance engine 🔨** (branch `feat/m3-maintenance-engine`, from `feat/m2-assets-documents`)
+
+Agreed decisions: time-decay EWMA (per-interval km/day weighted by a 30-day half-life; baseline only below 2 readings; confidence from reading count, recency and rate variance). Presets show up as a "Suggested schedules" wizard step and as "Add from preset" / "Custom" on the Schedule tab. Reminders: daily WorkManager job around 08:00 local, one notification per status change; `POST_NOTIFICATIONS` is requested when the first schedule is created; Settings has an on/off toggle.
 - [ ] `domain/engine`: calendar and usage triggers, EWMA km/day, confidence, status bands
 - [ ] `engine-fixtures/*.json`, shared with the TypeScript engine in Phase 5
 - [ ] `domain/presets` (PH scooter, car, aircon, water filter), schedule CRUD, log service, odometer quick update
 - [ ] Dashboard: overdue, due soon, warranties expiring
 - [ ] Daily WorkManager job for local notifications (works offline)
+
+### Future
 
 **Phase 4: Sync ⏳**
 - [ ] `SyncWorker`: push the outbox, then pull by `updated_at > lastSyncedAt` (paged)
@@ -176,7 +178,9 @@ Status key: ✅ done · 🔨 in progress · ⏳ not started
 - [ ] Receipt OCR (ML Kit) to fill in the date, store, price and serial number
 - [ ] Barcode/serial scan (CameraX + ML Kit)
 
-**Phase 8: Polish and portfolio ⏳**
+**Phase 8: Polish and portfolio 🔨** (started early; design system committed on `feat/m2-assets-documents` as `17642be`)
+- [x] Design system: direction C "Asset Tag" chosen from three previews (`design/previews/`). Theme.kt has light + dark schemes, status container colours, bundled Schibsted Grotesk + IBM Plex Mono (OFL, `assets/licenses/`), shapes. Settings has a System / Light / Dark toggle (DataStore `SettingsRepository`); on API 31+ it's mirrored to `UiModeManager` so the launch window matches.
+- [ ] Restyle asset cards as asset tags and draw due windows (needs the Phase 3 engine output)
 - [ ] GitHub Actions CI: lint, unit tests, `assembleDebug`
 - [ ] RLS tests in SQL (one user can't read or write another's rows or files)
 - [ ] README with architecture diagram and screenshots, demo video, seeded demo account
@@ -185,4 +189,4 @@ Status key: ✅ done · 🔨 in progress · ⏳ not started
 - Household sharing (shared vaults). Deferred because it changes every RLS policy.
 - Configurable units and currency (km/mi, non-PHP).
 
-**Current state:** Phase 1 is done and committed on `feat/m1-foundation` (not merged). Phase 2 is implemented on `feat/m2-assets-documents` (branched from `feat/m1-foundation`): build, unit tests and Compose tests pass, and it is waiting to be committed. Once it is, move it to Completed with the commit hash.
+**Current state:** Phases 1 and 2 are done and committed (`feat/m1-foundation`, `feat/m2-assets-documents`, neither merged). Phase 3 is in progress on `feat/m3-maintenance-engine`.
