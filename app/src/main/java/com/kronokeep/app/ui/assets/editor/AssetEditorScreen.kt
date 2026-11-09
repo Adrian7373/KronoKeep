@@ -169,6 +169,7 @@ fun AssetEditorScreen(
                     state.step == WizardStep.CATEGORY -> CategoryStep(state.form.category, viewModel::selectCategory)
                     state.step == WizardStep.DETAILS -> DetailsSection(state, viewModel)
                     state.step == WizardStep.BASELINES -> BaselinesSection(state, viewModel)
+                    state.step == WizardStep.SCHEDULES -> SuggestedSchedulesStep(state, viewModel)
                 }
             }
         }

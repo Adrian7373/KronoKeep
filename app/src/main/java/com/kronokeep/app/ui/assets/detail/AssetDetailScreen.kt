@@ -15,10 +15,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Archive
-import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.TaskAlt
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.automirrored.outlined.NoteAdd
 import androidx.compose.material.icons.outlined.SearchOff
@@ -73,6 +73,10 @@ import java.time.temporal.ChronoUnit
 
 private enum class DetailTab(val title: String) { SCHEDULE("Schedule"), HISTORY("History"), DOCUMENTS("Documents") }
 
+object AssetDetailTags {
+    const val LOG_SERVICE = "detail_log_service"
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun AssetDetailScreen(
@@ -80,6 +84,9 @@ fun AssetDetailScreen(
     onBack: () -> Unit,
     onEdit: (assetId: String) -> Unit,
     onOpenDocument: (documentId: String) -> Unit,
+    onAddSchedule: (assetId: String) -> Unit,
+    onEditSchedule: (assetId: String, scheduleId: String) -> Unit,
+    onLogService: (assetId: String, scheduleId: String?) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val transient by viewModel.transient.collectAsStateWithLifecycle()
@@ -88,6 +95,9 @@ fun AssetDetailScreen(
     var menuOpen by remember { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     var sheetOpen by rememberSaveable { mutableStateOf(false) }
+    var presetSheetOpen by rememberSaveable { mutableStateOf(false) }
+    var odometerOpen by rememberSaveable { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf<PendingDelete?>(null) }
 
     LaunchedEffect(transient.message) {
         transient.message?.let {
@@ -156,6 +166,13 @@ fun AssetDetailScreen(
                     text = { Text("Add document") },
                     expanded = !loaded.isImporting,
                 )
+            } else if (loaded != null) {
+                ExtendedFloatingActionButton(
+                    onClick = { onLogService(loaded.asset.id, null) },
+                    icon = { Icon(Icons.Outlined.TaskAlt, contentDescription = null) },
+                    text = { Text("Log service") },
+                    modifier = Modifier.testTag(AssetDetailTags.LOG_SERVICE),
+                )
             }
         },
     ) { padding ->
@@ -182,24 +199,18 @@ fun AssetDetailScreen(
                     }
                 }
                 when (DetailTab.entries[tab]) {
-                    DetailTab.SCHEDULE -> item(key = "schedule") {
-                        TabPlaceholder(
-                            icon = Icons.Outlined.Build,
-                            title = "Maintenance schedule",
-                            body = if (s.asset.category == AssetCategory.ELECTRONIC) {
-                                "Electronics track the warranty only."
-                            } else {
-                                "Predicted service dates for this asset will show up here."
-                            },
-                        )
-                    }
-                    DetailTab.HISTORY -> item(key = "history") {
-                        TabPlaceholder(
-                            icon = Icons.Outlined.History,
-                            title = "Service history",
-                            body = "Logged services and repairs will show up here.",
-                        )
-                    }
+                    DetailTab.SCHEDULE -> scheduleTab(
+                        asset = s.asset,
+                        maintenance = s.maintenance,
+                        now = s.now,
+                        onUpdateOdometer = { odometerOpen = true },
+                        onAddFromPreset = { presetSheetOpen = true },
+                        onAddCustom = { onAddSchedule(s.asset.id) },
+                        onLogService = { onLogService(s.asset.id, it) },
+                        onEdit = { onEditSchedule(s.asset.id, it) },
+                        onDelete = { pendingDelete = it },
+                    )
+                    DetailTab.HISTORY -> historyTab(s.logs, onDelete = { pendingDelete = it })
                     DetailTab.DOCUMENTS -> {
                         if (s.isImporting) item(key = "importing") { ImportingRow() }
                         if (s.documents.isEmpty() && !s.isImporting) {
@@ -239,6 +250,42 @@ fun AssetDetailScreen(
             onKindChange = { kind = it },
             pickers = pickers,
             onDismiss = { sheetOpen = false },
+        )
+    }
+
+    if (presetSheetOpen && loaded != null) {
+        PresetSheet(
+            category = loaded.asset.category,
+            existingTasks = loaded.maintenance.schedules.map { it.schedule.task }.toSet(),
+            onAdd = viewModel::addPresetTasks,
+            onDismiss = { presetSheetOpen = false },
+        )
+    }
+
+    if (odometerOpen && loaded != null) {
+        OdometerDialog(
+            currentKm = loaded.maintenance.currentKm,
+            error = transient.odometerError,
+            saved = transient.odometerSaved,
+            onSave = viewModel::saveOdometer,
+            onDismiss = {
+                odometerOpen = false
+                viewModel.onOdometerDialogClosed()
+            },
+        )
+    }
+
+    pendingDelete?.let { target ->
+        ConfirmDeleteDialog(
+            target = target,
+            onConfirm = {
+                pendingDelete = null
+                when (target) {
+                    is PendingDelete.Schedule -> viewModel.deleteSchedule(target.id)
+                    is PendingDelete.Log -> viewModel.deleteLog(target.id)
+                }
+            },
+            onDismiss = { pendingDelete = null },
         )
     }
 

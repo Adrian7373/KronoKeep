@@ -35,7 +35,13 @@ import com.kronokeep.app.navigation.DocumentViewerRoute
 import com.kronokeep.app.navigation.EditAssetRoute
 import com.kronokeep.app.navigation.DashboardRoute
 import com.kronokeep.app.navigation.Navigator
+import com.kronokeep.app.navigation.LogServiceRoute
+import com.kronokeep.app.navigation.ScheduleEditorRoute
 import com.kronokeep.app.navigation.SettingsRoute
+import com.kronokeep.app.ui.schedules.ScheduleEditorScreen
+import com.kronokeep.app.ui.schedules.ScheduleEditorViewModel
+import com.kronokeep.app.ui.service.LogServiceScreen
+import com.kronokeep.app.ui.service.LogServiceViewModel
 import com.kronokeep.app.navigation.rememberNavigationState
 import com.kronokeep.app.ui.assets.AssetsScreen
 import com.kronokeep.app.ui.assets.detail.AssetDetailScreen
@@ -69,7 +75,11 @@ fun KronoKeepAppRoot(viewModel: AppViewModel = hiltViewModel()) {
             CircularProgressIndicator()
         }
         AuthState.SignedOut -> AuthScreen()
-        AuthState.Unconfigured, is AuthState.SignedIn -> MainShell(cloudConfigured = authState != AuthState.Unconfigured)
+        AuthState.Unconfigured, is AuthState.SignedIn -> {
+            val askForNotifications by viewModel.shouldAskForNotifications.collectAsStateWithLifecycle()
+            NotificationPermissionGate(askForNotifications, viewModel::onNotificationPromptShown)
+            MainShell(cloudConfigured = authState != AuthState.Unconfigured)
+        }
     }
 }
 
@@ -80,7 +90,13 @@ private fun MainShell(cloudConfigured: Boolean) {
     val navigator = remember(navigationState) { Navigator(navigationState) }
 
     val entryProvider = entryProvider<NavKey> {
-        entry<DashboardRoute> { DashboardScreen(cloudConfigured = cloudConfigured) }
+        entry<DashboardRoute> {
+            DashboardScreen(
+                cloudConfigured = cloudConfigured,
+                onOpenAsset = { navigator.navigate(AssetDetailRoute(it)) },
+                onAddAsset = { navigator.navigate(AddAssetRoute) },
+            )
+        }
         entry<AssetsRoute> {
             AssetsScreen(
                 onAddAsset = { navigator.navigate(AddAssetRoute) },
@@ -108,6 +124,26 @@ private fun MainShell(cloudConfigured: Boolean) {
                 onBack = navigator::goBack,
                 onEdit = { navigator.navigate(EditAssetRoute(it)) },
                 onOpenDocument = { navigator.navigate(DocumentViewerRoute(it)) },
+                onAddSchedule = { navigator.navigate(ScheduleEditorRoute(it)) },
+                onEditSchedule = { assetId, scheduleId -> navigator.navigate(ScheduleEditorRoute(assetId, scheduleId)) },
+                onLogService = { assetId, scheduleId -> navigator.navigate(LogServiceRoute(assetId, scheduleId)) },
+            )
+        }
+        entry<ScheduleEditorRoute> { key ->
+            ScheduleEditorScreen(
+                viewModel = hiltViewModel<ScheduleEditorViewModel, ScheduleEditorViewModel.Factory> {
+                    it.create(key.assetId, key.scheduleId)
+                },
+                onClose = navigator::goBack,
+            )
+        }
+        entry<LogServiceRoute> { key ->
+            LogServiceScreen(
+                viewModel = hiltViewModel<LogServiceViewModel, LogServiceViewModel.Factory> {
+                    it.create(key.assetId, key.scheduleId)
+                },
+                onDone = { navigator.goBack() },
+                onClose = navigator::goBack,
             )
         }
         entry<DocumentViewerRoute> { key ->

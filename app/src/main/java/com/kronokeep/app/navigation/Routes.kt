@@ -13,3 +13,9 @@ import kotlinx.serialization.Serializable
 @Serializable data class AssetDetailRoute(val assetId: String) : NavKey
 @Serializable data class EditAssetRoute(val assetId: String) : NavKey
 @Serializable data class DocumentViewerRoute(val documentId: String) : NavKey
+
+/** Add (scheduleId = null) or edit a maintenance schedule. */
+@Serializable data class ScheduleEditorRoute(val assetId: String, val scheduleId: String? = null) : NavKey
+
+/** Log a service visit, optionally with one task pre-ticked. */
+@Serializable data class LogServiceRoute(val assetId: String, val scheduleId: String? = null) : NavKey
