@@ -1,0 +1,27 @@
+{
+  "name": "ewma-constant-rate-due-soon",
+  "description": "Four readings 10 days apart at exactly 30 km/day. With 2+ readings the 700 km/week baseline is ignored. Confidence = (1 - 0.5^3) x 1 (no variance) x 0.5^(10/30) = 0.69449. 600 km left from the last reading = 20 days, due 2026-11-24, 10 days out, so due_soon. ±ceil(10 x 0.30551) = ±4 days.",
+  "now": "2026-11-14T00:00:00Z",
+  "schedule": { "intervalDays": 60, "intervalKm": 1500, "lastDoneAt": "2026-10-05T00:00:00Z", "lastDoneKm": 9100 },
+  "usage": {
+    "currentOdometerKm": 10000,
+    "weeklyKmBaseline": 700,
+    "readings": [
+      { "km": 9100, "at": "2026-10-05T00:00:00Z" },
+      { "km": 9400, "at": "2026-10-15T00:00:00Z" },
+      { "km": 9700, "at": "2026-10-25T00:00:00Z" },
+      { "km": 10000, "at": "2026-11-04T00:00:00Z" }
+    ]
+  },
+  "expected": {
+    "rateSource": "ewma",
+    "kmPerDay": 30.0,
+    "nextDueAt": "2026-11-24T00:00:00Z",
+    "nextDueKm": 10600,
+    "trigger": "usage",
+    "status": "due_soon",
+    "confidence": 0.694487960236087,
+    "uncertaintyDays": 4,
+    "projectedKm": 10300
+  }
+}
