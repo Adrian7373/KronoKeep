@@ -19,6 +19,9 @@ interface DocumentStorage {
     suspend fun upload(path: String, bytes: ByteArray, mimeType: String)
 
     suspend fun signedDownloadUrl(path: String, ttlSeconds: Long): String
+
+    /** Removes an object whose row has been soft-deleted on the server. */
+    suspend fun delete(path: String)
 }
 
 class CloudNotConfiguredException : IllegalStateException("Cloud sync isn't configured")
@@ -42,6 +45,10 @@ class SupabaseDocumentStorage @Inject constructor(
     override suspend fun signedDownloadUrl(path: String, ttlSeconds: Long): String {
         require(ttlSeconds in 1..DocumentRules.SIGNED_URL_TTL_SECONDS) { "Signed URLs must expire within 10 minutes" }
         return bucket().createSignedUrl(path, ttlSeconds.seconds)
+    }
+
+    override suspend fun delete(path: String) {
+        bucket().delete(path)
     }
 }
 
