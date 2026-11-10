@@ -44,6 +44,15 @@ import com.kronokeep.app.BuildConfig
 import com.kronokeep.app.domain.repository.AuthRepository
 import com.kronokeep.app.domain.repository.AuthState
 import com.kronokeep.app.domain.repository.SettingsRepository
+import com.kronokeep.app.domain.repository.SyncRepository
+import com.kronokeep.app.domain.repository.SyncStatus
+import androidx.compose.material.icons.outlined.CloudDone
+import androidx.compose.material.icons.outlined.CloudSync
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.size
+import com.kronokeep.app.ui.theme.KronoTheme
 import com.kronokeep.app.domain.settings.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -56,8 +65,14 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val settingsRepository: SettingsRepository,
+    private val syncRepository: SyncRepository,
 ) : ViewModel() {
     val authState: StateFlow<AuthState> = authRepository.state
+
+    val syncStatus: StateFlow<SyncStatus?> = syncRepository.status
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun syncNow() = syncRepository.syncNow()
 
     val themeMode: StateFlow<ThemeMode> = settingsRepository.themeMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ThemeMode.SYSTEM)
@@ -91,6 +106,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val auth by viewModel.authState.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val remindersOn by viewModel.remindersEnabled.collectAsStateWithLifecycle()
+    val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
     val context = LocalContext.current
     // Re-checked on resume: the user may have just changed it in system settings.
     var systemAllows by remember { mutableStateOf(true) }
@@ -112,6 +128,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                         supportingContent = { Text("Your vault syncs to the cloud") },
                         leadingContent = { Icon(Icons.Outlined.AccountCircle, contentDescription = null) },
                     )
+                    syncStatus?.let { SyncRow(it, onSyncNow = viewModel::syncNow) }
                     ListItem(
                         headlineContent = { Text("Sign out") },
                         leadingContent = { Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = null) },
@@ -176,6 +193,27 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             )
         }
     }
+}
+
+@Composable
+private fun SyncRow(status: SyncStatus, onSyncNow: () -> Unit) {
+    val (icon, tint) = when {
+        status.rejected > 0 -> Icons.Outlined.ErrorOutline to KronoTheme.status.overdue
+        status.allSynced -> Icons.Outlined.CloudDone to KronoTheme.status.ok
+        else -> Icons.Outlined.CloudSync to MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    ListItem(
+        headlineContent = { Text("Sync") },
+        supportingContent = { Text(status.summary()) },
+        leadingContent = { Icon(icon, contentDescription = null, tint = tint) },
+        trailingContent = {
+            if (status.running) {
+                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+            } else {
+                TextButton(onClick = onSyncNow) { Text("Sync now") }
+            }
+        },
+    )
 }
 
 @Composable
