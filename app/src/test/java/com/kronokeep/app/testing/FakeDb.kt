@@ -130,6 +130,8 @@ class FakeDb : TransactionRunner {
 
         override suspend fun getById(id: String): MaintenanceScheduleEntity? = schedules.value[id]
 
+        override suspend fun unownedIds(): List<String> = schedules.value.values.filter { it.userId == null }.map { it.id }
+
         override suspend fun assetIdsWithSchedules(): List<String> = live().map { it.assetId }.distinct()
 
         override suspend fun upsert(schedule: MaintenanceScheduleEntity) {
@@ -146,6 +148,8 @@ class FakeDb : TransactionRunner {
         }
 
         override suspend fun getById(id: String): ServiceLogEntity? = logs.value[id]
+
+        override suspend fun unownedIds(): List<String> = logs.value.values.filter { it.userId == null }.map { it.id }
 
         override suspend fun latestForSchedule(scheduleId: String): ServiceLogEntity? =
             logs.value.values.filter { it.scheduleId == scheduleId && it.deletedAt == null }.maxByOrNull { it.performedAt }
@@ -169,6 +173,8 @@ class FakeDb : TransactionRunner {
 
         override suspend fun getById(id: String): AssetEntity? = assets.value[id]
 
+        override suspend fun unownedIds(): List<String> = assets.value.values.filter { it.userId == null }.map { it.id }
+
         override suspend fun upsert(asset: AssetEntity) {
             write("assets")
             assets.value = assets.value + (asset.id to asset)
@@ -187,6 +193,10 @@ class FakeDb : TransactionRunner {
             m.values.filter { it.deletedAt == null }.sortedBy { it.recordedAt }
         }
 
+        override suspend fun getById(id: String): OdometerReadingEntity? = readings.value[id]
+
+        override suspend fun unownedIds(): List<String> = readings.value.values.filter { it.userId == null }.map { it.id }
+
         override suspend fun upsert(reading: OdometerReadingEntity) {
             write("odometer_readings")
             readings.value = readings.value + (reading.id to reading)
@@ -199,6 +209,8 @@ class FakeDb : TransactionRunner {
         }
 
         override suspend fun getById(id: String): DocumentEntity? = documents.value[id]
+
+        override suspend fun unownedIds(): List<String> = documents.value.values.filter { it.userId == null }.map { it.id }
 
         override suspend fun pendingUploads(userId: String): List<DocumentEntity> = documents.value.values.filter {
             it.userId == userId && it.storagePath == null && it.localPath != null &&
@@ -221,9 +233,19 @@ class FakeDb : TransactionRunner {
             outbox.value = outbox.value + entry.copy(seq = if (entry.seq == 0L) ++seq else entry.seq)
         }
 
-        override suspend fun peek(limit: Int): List<OutboxEntity> = outbox.value.sortedBy { it.seq }.take(limit)
+        override suspend fun pending(maxAttempts: Int): List<OutboxEntity> =
+            outbox.value.filter { it.attempts < maxAttempts }.sortedBy { it.seq }
+
+        override suspend fun entryFor(tableName: String, rowId: String): OutboxEntity? =
+            outbox.value.firstOrNull { it.tableName == tableName && it.rowId == rowId }
+
+        override suspend fun markAttempt(seq: Long, error: String?) {
+            write("outbox")
+            outbox.value = outbox.value.map { if (it.seq == seq) it.copy(attempts = it.attempts + 1, lastError = error) else it }
+        }
 
         override suspend fun remove(seq: Long) {
+            write("outbox")
             outbox.value = outbox.value.filterNot { it.seq == seq }
         }
 
@@ -232,7 +254,14 @@ class FakeDb : TransactionRunner {
             outbox.value = outbox.value.filterNot { it.tableName == tableName && it.rowId == rowId }
         }
 
-        override fun observePendingCount(): Flow<Int> = outbox.map { it.size }
+        override fun observeLatestSeq(): Flow<Long?> = outbox.map { rows -> rows.maxOfOrNull { it.seq } }
+
+        override suspend fun latestSeq(): Long? = outbox.value.maxOfOrNull { it.seq }
+
+        override fun observePendingCount(maxAttempts: Int): Flow<Int> = outbox.map { rows -> rows.count { it.attempts < maxAttempts } }
+
+        override fun observeRejectedCount(maxAttempts: Int): Flow<Int> =
+            outbox.map { rows -> rows.count { it.attempts >= maxAttempts } }
     }
 }
 
@@ -259,7 +288,13 @@ class FakeFileStore(initial: Map<String, ByteArray> = emptyMap()) : LocalFileSto
 class FakeStorage : DocumentStorage {
     val objects = mutableMapOf<String, ByteArray>()
     val signedUrlRequests = mutableListOf<Pair<String, Long>>()
+    val deleted = mutableListOf<String>()
     var failUploads = false
+
+    override suspend fun delete(path: String) {
+        deleted += path
+        objects.remove(path)
+    }
 
     override suspend fun upload(path: String, bytes: ByteArray, mimeType: String) {
         if (failUploads) throw java.io.IOException("offline")
