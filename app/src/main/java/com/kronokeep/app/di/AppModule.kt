@@ -25,6 +25,14 @@ import com.kronokeep.app.data.repository.DocumentRepositoryImpl
 import com.kronokeep.app.data.repository.UploadScheduler
 import com.kronokeep.app.data.repository.UserIdProvider
 import com.kronokeep.app.data.sync.WorkManagerUploadScheduler
+import com.kronokeep.app.data.remote.SupabaseSyncRemote
+import com.kronokeep.app.data.remote.SyncRemote
+import com.kronokeep.app.data.repository.SyncScheduler
+import com.kronokeep.app.data.sync.DataStoreSyncStateStore
+import com.kronokeep.app.data.sync.SyncRepositoryImpl
+import com.kronokeep.app.data.sync.SyncStateStore
+import com.kronokeep.app.data.sync.WorkManagerSyncScheduler
+import com.kronokeep.app.domain.repository.SyncRepository
 import com.kronokeep.app.domain.common.IdGenerator
 import com.kronokeep.app.domain.repository.AuthState
 import com.kronokeep.app.domain.repository.DocumentImporter
@@ -117,4 +125,8 @@ abstract class RepositoryModule {
     @Binds abstract fun bindReminderLedgerStore(impl: DataStoreSettingsRepository): ReminderLedgerStore
     @Binds abstract fun bindMaintenanceRepository(impl: MaintenanceRepositoryImpl): MaintenanceRepository
     @Binds abstract fun bindReminderNotifier(impl: AndroidReminderNotifier): ReminderNotifier
+    @Binds abstract fun bindSyncRemote(impl: SupabaseSyncRemote): SyncRemote
+    @Binds abstract fun bindSyncStateStore(impl: DataStoreSyncStateStore): SyncStateStore
+    @Binds abstract fun bindSyncScheduler(impl: WorkManagerSyncScheduler): SyncScheduler
+    @Binds abstract fun bindSyncRepository(impl: SyncRepositoryImpl): SyncRepository
 }

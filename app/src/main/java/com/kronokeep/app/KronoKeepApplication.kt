@@ -5,7 +5,7 @@ import androidx.work.Configuration
 import com.kronokeep.app.data.reminders.AndroidReminderNotifier
 import com.kronokeep.app.data.reminders.ReminderScheduler
 import com.kronokeep.app.data.sync.KronoWorkerFactory
-import com.kronokeep.app.data.sync.UploadTrigger
+import com.kronokeep.app.data.sync.SyncTrigger
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -13,7 +13,7 @@ import javax.inject.Inject
 class KronoKeepApplication : Application(), Configuration.Provider {
 
     @Inject lateinit var workerFactory: KronoWorkerFactory
-    @Inject lateinit var uploadTrigger: UploadTrigger
+    @Inject lateinit var syncTrigger: SyncTrigger
     @Inject lateinit var reminderScheduler: ReminderScheduler
     @Inject lateinit var reminderNotifier: AndroidReminderNotifier
 
@@ -24,7 +24,7 @@ class KronoKeepApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         reminderNotifier.ensureChannel()
-        uploadTrigger.start()
+        syncTrigger.start()
         reminderScheduler.start()
     }
 }
