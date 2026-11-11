@@ -17,6 +17,7 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -34,6 +35,7 @@ import com.kronokeep.app.navigation.AssetsRoute
 import com.kronokeep.app.navigation.DocumentViewerRoute
 import com.kronokeep.app.navigation.EditAssetRoute
 import com.kronokeep.app.navigation.DashboardRoute
+import com.kronokeep.app.navigation.DeepLink
 import com.kronokeep.app.navigation.Navigator
 import com.kronokeep.app.navigation.LogServiceRoute
 import com.kronokeep.app.navigation.ScheduleEditorRoute
@@ -78,16 +80,32 @@ fun KronoKeepAppRoot(viewModel: AppViewModel = hiltViewModel()) {
         AuthState.Unconfigured, is AuthState.SignedIn -> {
             val askForNotifications by viewModel.shouldAskForNotifications.collectAsStateWithLifecycle()
             NotificationPermissionGate(askForNotifications, viewModel::onNotificationPromptShown)
-            MainShell(cloudConfigured = authState != AuthState.Unconfigured)
+            val deepLink by viewModel.pendingDeepLink.collectAsStateWithLifecycle()
+            MainShell(
+                cloudConfigured = authState != AuthState.Unconfigured,
+                deepLink = deepLink,
+                onDeepLinkHandled = viewModel::onDeepLinkHandled,
+            )
         }
     }
 }
 
 @Composable
-private fun MainShell(cloudConfigured: Boolean) {
+private fun MainShell(
+    cloudConfigured: Boolean,
+    deepLink: DeepLink?,
+    onDeepLinkHandled: (DeepLink) -> Unit,
+) {
     val topLevelRoutes = remember { TOP_LEVEL_DESTINATIONS.map { it.route }.toSet() }
     val navigationState = rememberNavigationState(startRoute = DashboardRoute, topLevelRoutes = topLevelRoutes)
     val navigator = remember(navigationState) { Navigator(navigationState) }
+
+    LaunchedEffect(deepLink) {
+        deepLink?.let {
+            navigator.open(it)
+            onDeepLinkHandled(it)
+        }
+    }
 
     val entryProvider = entryProvider<NavKey> {
         entry<DashboardRoute> {

@@ -8,7 +8,10 @@ import com.kronokeep.app.domain.repository.MaintenanceRepository
 import com.kronokeep.app.domain.repository.SettingsRepository
 import com.kronokeep.app.domain.settings.ThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
+import com.kronokeep.app.navigation.DeepLink
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -42,5 +45,18 @@ class AppViewModel @Inject constructor(
 
     fun onNotificationPromptShown() {
         viewModelScope.launch { settingsRepository.markNotificationPromptShown() }
+    }
+
+    private val _pendingDeepLink = MutableStateFlow<DeepLink?>(null)
+
+    /** A notification tap waiting for the main shell (it waits through sign-in if needed). */
+    val pendingDeepLink: StateFlow<DeepLink?> = _pendingDeepLink.asStateFlow()
+
+    fun onDeepLink(link: DeepLink) {
+        _pendingDeepLink.value = link
+    }
+
+    fun onDeepLinkHandled(link: DeepLink) {
+        _pendingDeepLink.compareAndSet(link, null)
     }
 }

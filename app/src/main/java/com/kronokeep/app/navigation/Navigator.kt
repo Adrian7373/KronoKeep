@@ -21,6 +21,15 @@ class Navigator(val state: NavigationState) {
         stack.add(route)
     }
 
+    /** Selects the link's tab and replaces that tab's stack with the link's (the tab root is kept). */
+    fun open(link: DeepLink) {
+        val target = link.target()
+        val stack = state.backStacks[target.tab] ?: return
+        while (stack.size > 1) stack.removeAt(stack.lastIndex)
+        stack.addAll(target.stack.drop(1))
+        state.topLevelRoute = target.tab
+    }
+
     fun goBack() {
         val stack = state.backStacks[state.topLevelRoute]
             ?: error("Stack for ${state.topLevelRoute} not found")
