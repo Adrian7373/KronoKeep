@@ -38,6 +38,16 @@ android {
             "SUPABASE_PUBLISHABLE_KEY",
             localProps.getProperty("supabase.publishableKey", "").asBuildConfigString(),
         )
+        // FCM, initialised by hand in KronoKeepApplication. Any key missing = no push, app runs as before.
+        val firebaseKeys = listOf(
+            "FIREBASE_PROJECT_ID" to "firebase.projectId",
+            "FIREBASE_APPLICATION_ID" to "firebase.applicationId",
+            "FIREBASE_API_KEY" to "firebase.apiKey",
+            "FIREBASE_GCM_SENDER_ID" to "firebase.gcmSenderId",
+        )
+        for ((field, key) in firebaseKeys) {
+            buildConfigField("String", field, localProps.getProperty(key, "").asBuildConfigString())
+        }
     }
 
     buildTypes {
@@ -103,6 +113,10 @@ dependencies {
     implementation(libs.supabase.storage)
     implementation(libs.supabase.functions)
     implementation(libs.ktor.client.okhttp)
+
+    // Push reminders
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
 
     // Serialization / images
     implementation(libs.kotlinx.serialization.json)
