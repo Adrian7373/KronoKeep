@@ -41,6 +41,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.kronokeep.app.BuildConfig
+import com.kronokeep.app.domain.auth.SignOutUseCase
 import com.kronokeep.app.domain.repository.AuthRepository
 import com.kronokeep.app.domain.repository.AuthState
 import com.kronokeep.app.domain.repository.SettingsRepository
@@ -63,7 +64,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val authRepository: AuthRepository,
+    authRepository: AuthRepository,
+    private val signOutUseCase: SignOutUseCase,
     private val settingsRepository: SettingsRepository,
     private val syncRepository: SyncRepository,
 ) : ViewModel() {
@@ -78,7 +80,7 @@ class SettingsViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ThemeMode.SYSTEM)
 
     fun signOut() {
-        viewModelScope.launch { authRepository.signOut() }
+        viewModelScope.launch { signOutUseCase() }
     }
 
     fun setThemeMode(mode: ThemeMode) {
