@@ -49,6 +49,34 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!--
+            Push reminders. Firebase is set up by hand from local.properties (no google-services.json), so the
+            init provider is removed and FCM auto-init stays off until KronoKeepApplication enables it.
+        -->
+        <provider
+            android:name="com.google.firebase.provider.FirebaseInitProvider"
+            android:authorities="${applicationId}.firebaseinitprovider"
+            tools:node="remove" />
+        <meta-data
+            android:name="firebase_messaging_auto_init_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="maintenance_reminders" />
+
+        <service
+            android:name=".data.push.KronoMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- "Mark done" on a reminder notification. Only our own PendingIntents reach it. -->
+        <receiver
+            android:name=".data.reminders.ReminderActionReceiver"
+            android:exported="false" />
+
         <!-- WorkManager is initialised on demand from KronoKeepApplication (custom WorkerFactory). -->
         <provider
             android:name="androidx.startup.InitializationProvider"
