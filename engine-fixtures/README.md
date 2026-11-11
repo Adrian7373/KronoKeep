@@ -1,6 +1,6 @@
 # Engine fixtures
 
-Golden cases for the maintenance engine. The Kotlin engine (`app/src/main/java/com/kronokeep/app/domain/engine/`) and the TypeScript engine (`supabase/functions/_shared/engine.ts`, Phase 5) must both pass every file here. If you change the engine rules, change both engines and these fixtures in the same branch.
+Golden cases for the maintenance engine. The Kotlin engine (`app/src/main/java/com/kronokeep/app/domain/engine/`) and the TypeScript engine (`supabase/functions/_shared/engine.ts`) must both pass every file here: `EngineFixturesTest` (Gradle) and `node --test supabase/functions/_shared/engine.test.ts` run them. If you change the engine rules, change both engines and these fixtures in the same branch.
 
 Each file is one case:
 
