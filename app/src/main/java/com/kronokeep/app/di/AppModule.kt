@@ -44,6 +44,10 @@ import com.kronokeep.app.data.sync.SyncRepositoryImpl
 import com.kronokeep.app.data.sync.SyncStateStore
 import com.kronokeep.app.data.sync.WorkManagerSyncScheduler
 import com.kronokeep.app.domain.repository.SyncRepository
+import com.kronokeep.app.data.remote.ReportRemote
+import com.kronokeep.app.data.remote.SupabaseReportRemote
+import com.kronokeep.app.data.repository.ReportRepositoryImpl
+import com.kronokeep.app.domain.repository.ReportRepository
 import com.kronokeep.app.domain.common.IdGenerator
 import com.kronokeep.app.domain.repository.AuthState
 import com.kronokeep.app.domain.repository.DocumentImporter
@@ -140,6 +144,10 @@ abstract class RepositoryModule {
     @Binds abstract fun bindSyncStateStore(impl: DataStoreSyncStateStore): SyncStateStore
     @Binds abstract fun bindSyncScheduler(impl: WorkManagerSyncScheduler): SyncScheduler
     @Binds abstract fun bindSyncRepository(impl: SyncRepositoryImpl): SyncRepository
+
+    // Verified reports
+    @Binds abstract fun bindReportRemote(impl: SupabaseReportRemote): ReportRemote
+    @Binds abstract fun bindReportRepository(impl: ReportRepositoryImpl): ReportRepository
 
     // Push reminders
     @Binds abstract fun bindDueNotifier(impl: AndroidReminderNotifier): DueNotifier

@@ -262,6 +262,16 @@ class FakeDb : TransactionRunner {
 
         override fun observeRejectedCount(maxAttempts: Int): Flow<Int> =
             outbox.map { rows -> rows.count { it.attempts >= maxAttempts } }
+
+        override suspend fun countForAsset(assetId: String): Int = outbox.value.count { e ->
+            when (e.tableName) {
+                "assets" -> e.rowId == assetId
+                "maintenance_schedules" -> schedules.value[e.rowId]?.assetId == assetId
+                "service_logs" -> logs.value[e.rowId]?.assetId == assetId
+                "odometer_readings" -> readings.value[e.rowId]?.assetId == assetId
+                else -> false
+            }
+        }
     }
 }
 
