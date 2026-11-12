@@ -164,8 +164,9 @@ private class PdfDocumentHandle(file: File) {
     }
 }
 
+/** Also used by the report viewer. */
 @Composable
-private fun PdfPages(path: String) {
+internal fun PdfPages(path: String) {
     val handle by produceState<PdfDocumentHandle?>(null, path) {
         val opened = withContext(Dispatchers.IO) { runCatching { PdfDocumentHandle(File(path)) }.getOrNull() }
         value = opened

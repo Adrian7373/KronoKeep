@@ -40,6 +40,12 @@ import com.kronokeep.app.navigation.Navigator
 import com.kronokeep.app.navigation.LogServiceRoute
 import com.kronokeep.app.navigation.ScheduleEditorRoute
 import com.kronokeep.app.navigation.SettingsRoute
+import com.kronokeep.app.navigation.ReportViewerRoute
+import com.kronokeep.app.navigation.ReportsRoute
+import com.kronokeep.app.ui.reports.ReportViewerScreen
+import com.kronokeep.app.ui.reports.ReportViewerViewModel
+import com.kronokeep.app.ui.reports.ReportsScreen
+import com.kronokeep.app.ui.reports.ReportsViewModel
 import com.kronokeep.app.ui.schedules.ScheduleEditorScreen
 import com.kronokeep.app.ui.schedules.ScheduleEditorViewModel
 import com.kronokeep.app.ui.service.LogServiceScreen
@@ -145,6 +151,22 @@ private fun MainShell(
                 onAddSchedule = { navigator.navigate(ScheduleEditorRoute(it)) },
                 onEditSchedule = { assetId, scheduleId -> navigator.navigate(ScheduleEditorRoute(assetId, scheduleId)) },
                 onLogService = { assetId, scheduleId -> navigator.navigate(LogServiceRoute(assetId, scheduleId)) },
+                onOpenReports = { navigator.navigate(ReportsRoute(it)) },
+            )
+        }
+        entry<ReportsRoute> { key ->
+            ReportsScreen(
+                viewModel = hiltViewModel<ReportsViewModel, ReportsViewModel.Factory> { it.create(key.assetId) },
+                onBack = navigator::goBack,
+                onOpenReport = { navigator.navigate(ReportViewerRoute(key.assetId, it)) },
+            )
+        }
+        entry<ReportViewerRoute> { key ->
+            ReportViewerScreen(
+                viewModel = hiltViewModel<ReportViewerViewModel, ReportViewerViewModel.Factory> {
+                    it.create(key.assetId, key.reportId)
+                },
+                onBack = navigator::goBack,
             )
         }
         entry<ScheduleEditorRoute> { key ->
