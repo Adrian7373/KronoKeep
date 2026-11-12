@@ -5,3 +5,8 @@ project_id = "kronokeep"
 # Called by pg_cron, not by users: it checks the x-cron-secret header instead of a user JWT.
 [functions.recompute-due]
 verify_jwt = false
+
+# Public: opened by whoever scans the QR code or follows a share link. It only reveals non-private fields,
+# and share links are checked against a hashed, expiring token. generate-report keeps JWT verification on.
+[functions.verify-report]
+verify_jwt = false
