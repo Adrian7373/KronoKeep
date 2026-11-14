@@ -124,6 +124,33 @@ class LogServiceUseCase @Inject constructor(
     }
 }
 
+/**
+ * "Mark done" from a reminder: logs the task as serviced now, at the asset's current odometer when the schedule
+ * counts km. Goes through [LogServiceUseCase], so the same validation applies; Invalid means the user has to fill
+ * in the details on the Log service screen (e.g. no odometer known yet).
+ */
+class MarkScheduleDoneUseCase @Inject constructor(
+    private val assets: AssetRepository,
+    private val maintenance: MaintenanceRepository,
+    private val logService: LogServiceUseCase,
+    private val clock: Clock,
+) {
+    suspend operator fun invoke(scheduleId: String): LogServiceResult {
+        val schedule = maintenance.getSchedule(scheduleId) ?: return LogServiceResult.NotFound
+        val asset = assets.get(schedule.assetId) ?: return LogServiceResult.NotFound
+        val km = if (schedule.intervalKm != null) currentKm(asset, maintenance.observeReadings(asset.id).first()) else null
+        val visit = ServiceVisit(
+            performedAt = clock.instant(),
+            odometerKm = km,
+            cost = null,
+            shop = null,
+            notes = null,
+            scheduleIds = listOf(scheduleId),
+        )
+        return logService(asset.id, visit)
+    }
+}
+
 class DeleteServiceLogUseCase @Inject constructor(private val maintenance: MaintenanceRepository) {
     suspend operator fun invoke(logId: String): DeleteLogResult = maintenance.deleteServiceLog(logId)
 }

@@ -25,21 +25,6 @@ begin
 end;
 $$;
 
--- True when the asset exists and belongs to the caller. Used by child-table policies so a user
--- can't attach rows to someone else's asset by guessing its UUID.
-create or replace function public.owns_asset(p_asset_id uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select exists (
-    select 1 from public.assets a
-    where a.id = p_asset_id and a.user_id = (select auth.uid())
-  );
-$$;
-
 -- ---------------------------------------------------------------------------
 -- assets
 -- ---------------------------------------------------------------------------
@@ -63,6 +48,22 @@ create table public.assets (
   deleted_at          timestamptz
 );
 create index assets_user_updated_idx on public.assets (user_id, updated_at);
+
+-- True when the asset exists and belongs to the caller. Used by child-table policies so a user
+-- can't attach rows to someone else's asset by guessing its UUID. Defined after `assets`: SQL function
+-- bodies are checked at creation time.
+create or replace function public.owns_asset(p_asset_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.assets a
+    where a.id = p_asset_id and a.user_id = (select auth.uid())
+  );
+$$;
 
 -- ---------------------------------------------------------------------------
 -- maintenance_schedules

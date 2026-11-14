@@ -17,6 +17,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.Clock
 import java.time.ZonedDateTime
 import java.util.concurrent.TimeUnit
@@ -36,11 +38,20 @@ class ReminderRunner @Inject constructor(
         // Status drifts with time even when nothing is edited; keep the stored (synced) due fields current.
         maintenance.recomputeAll()
         if (!settings.remindersEnabled.first() || !notifier.canPost()) return
-        val plan = ReminderPlanner.plan(observeAll().first(), ledger.load(), clock.instant())
-        if (plan.reminders.isNotEmpty()) notifier.post(plan.reminders)
-        // Only after posting: if notifications are blocked today, they still fire once they're allowed.
-        ledger.save(plan.ledger)
+        ReminderLedgerLock.withLock {
+            val plan = ReminderPlanner.plan(observeAll().first(), ledger.load(), clock.instant())
+            if (plan.reminders.isNotEmpty()) notifier.post(plan.reminders)
+            // Only after posting: if notifications are blocked today, they still fire once they're allowed.
+            ledger.save(plan.ledger)
+        }
     }
+}
+
+/** The daily job and incoming pushes both read-modify-write the ledger; this keeps them from interleaving. */
+object ReminderLedgerLock {
+    private val mutex = Mutex()
+
+    suspend fun <T> withLock(block: suspend () -> T): T = mutex.withLock { block() }
 }
 
 /** Runs offline: everything it reads is in Room. */

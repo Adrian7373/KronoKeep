@@ -163,14 +163,19 @@ Agreed decisions: time-decay EWMA (per-interval km/day weighted by a 30-day half
 - [x] UI: Settings has a Sync row (status line, spinner, "Sync now"). The asset and document badges were already in place. No Room schema change and no new migration.
 - [x] Tests: 31 new JVM tests (175 total), covering `SyncEngineTest` (16), `SyncTableTest` (7), `SyncRepositoryImplTest` (3) and `SyncStatusTextTest` (5). A `FakeSyncRemote` models server-owned `updated_at` with microseconds, RLS on `user_id`, rejections and outages. **Not yet exercised against a live Supabase project.**
 
+**Phase 5: Server engine ✅** (2026-11-15, `feat/m5-server-engine` from `feat/m4-sync`; committed and pushed, not yet merged)
+- [x] `supabase/functions/_shared/engine.ts`: a line-for-line port of the Kotlin engine in erasable TypeScript (it runs on Deno and on Node's type stripping). It passes all 10 fixtures (`engine.test.ts`, using only `node:` built-ins). Run with `node --test "supabase/functions/_shared/*.test.ts"`, which gives 30 tests.
+- [x] `recompute-due` Edge Function: the pure `_shared/recompute.ts` plans due-field updates (same 0.05 confidence step as `ScheduleRecomputer`) and reminder candidates (archived assets get no reminders). Writes go through the `apply_schedule_due` RPC, which keeps `updated_at` and skips a row edited since it was read, so the server never wins LWW over a user and doesn't trigger re-pulls. Auth is an `x-cron-secret` header (`verify_jwt = false` in `supabase/config.toml`). `pg_cron` runs it at :05 every hour via `pg_net`, with the URL and secret in Vault. Setup steps are in `supabase/README.md`.
+- [x] FCM server: `_shared/fcm.ts` handles HTTP v1 with a WebCrypto-signed service-account JWT (no dependency; the secret `FCM_SERVICE_ACCOUNT`). Messages are data-only, high priority, with a 1-day TTL. They're sent only between 08:00 and 21:00 Manila time. `reminder_log` (RLS, owner read-only) is claimed with `on conflict do nothing` before each send, keyed by (schedule, status, cycle), where cycle = last done at/km plus intervals. A claim is released when no device got it. Dead tokens are deleted.
+- [x] Migration `20261115000000_server_engine.sql`: `set_updated_at` honours a service-role-only preserve flag. It also adds `apply_schedule_due`, `register_device_token` (reassigns a token between accounts) and `unregister_device_token`, the `reminder_log` table, and the cron job.
+- [x] Android FCM: Firebase starts manually from the `local.properties` keys `firebase.projectId`, `firebase.applicationId`, `firebase.apiKey` and `firebase.gcmSenderId`. There's no google-services plugin and no init provider, and without the keys the app runs as before. `PushTokenRegistrar` registers on sign-in and on token rotation, and skips the call when nothing changed. `SignOutUseCase` unregisters first. `KronoMessagingService` decides with the pure `PushReminderPolicy`, which shares the device `ReminderLedger` (under a shared lock), so local and push reminders notify once per status change.
+- [x] Notification actions and deep links: tapping opens Asset detail, or the Dashboard for a multi-asset digest. "Log service" opens with the task preselected. "Mark done" (`ReminderActionReceiver` → `MarkScheduleDoneUseCase`) logs at the current km, and on failure shows a notification that opens Log service. Cold start and `onNewIntent` both work, and a pending link survives sign-in.
+- [x] Tests: 35 new JVM tests (210 total), covering the push parser, policy, handler, token registrar, deep links and mark-done, plus 30 Node tests on the server side. **Not yet exercised against live Supabase/Firebase or on a device** (pushes, notification actions).
+- [x] Deployed 2026-11-15 to Supabase project `kronokeep` (ref `djiaejvceiiahbffqnbr`, ap-southeast-1), at the user's request via the Supabase MCP. Applied migrations: `init` (fixed before its first apply anywhere, because `owns_asset` was created before `assets`), `server_engine`, and `20261115000100_advisor_fixes` (moves `pg_net` to `extensions`, revokes `owns_asset` from anon). `recompute-due` v1 is deployed with `verify_jwt=false`. The cron job and both Vault entries exist (the cron secret was generated in the database). The user has set the `CRON_SECRET` Edge secret. **Firebase is not configured yet** (as of 2026-11-15 there's no Firebase project): `FCM_SERVICE_ACCOUNT` is unset and the `firebase.*` keys in `local.properties` are blank. Until then, push reminders are off and the job only recomputes (it reports `fcm not configured`); on-device daily reminders still work. Later phases don't depend on it. The remaining advisor warnings (`owns_asset` and `register_device_token` callable by `authenticated`) are intended.
+
 ### Current
 
-**Phase 5: Server engine ⏳** (next up)
-- [ ] `supabase/functions/_shared/engine.ts`, passing the same fixtures as the Kotlin engine
-- [ ] `recompute-due` Edge Function, run hourly by `pg_cron`
-- [ ] FCM: device token registration, a reminder log so each reminder is sent once, notification actions
-
-**Phase 6: Verified PDF ⏳**
+**Phase 6: Verified PDF ⏳** (next up)
 - [ ] `generate-report`: canonical JSON → SHA-256 → lock logs → `pdf-lib` PDF with QR code → `reports` row
 - [ ] Public `verify-report?id=` (Valid / Revoked / Not found)
 - [ ] Export and share screen: 7-day signed link, revoke
@@ -190,8 +195,7 @@ Agreed decisions: time-decay EWMA (per-interval km/day weighted by a 30-day half
 - Household sharing (shared vaults). Deferred because it changes every RLS policy.
 - Configurable units and currency (km/mi, non-PHP).
 - Editing a service log in place (Phase 3 ships delete plus re-log). Deferred because a multi-task visit is several rows, and editing one needs a "visit" grouping the schema doesn't have yet.
-- Deep-linking a reminder notification to the asset (it opens the app for now). Deferred to Phase 5 with the FCM notification actions.
 - Separating local data per account on sign-out. Deferred because rows left by one account stay visible (though never pushed) if a different account signs in on the same phone, and wiping on sign-out would destroy unsynced work.
 - Base-version conflict detection, meaning each row stores the server `updated_at` it was edited from. Deferred because v1 LWW compares the phone's clock with server time, so a badly skewed clock resolves conflicts only approximately. It needs a Room schema v2.
 
-**Current state:** Phases 1–4 are done, committed and pushed (`feat/m1-foundation`, `feat/m2-assets-documents`, `feat/m3-maintenance-engine`, `feat/m4-sync`; none merged to `main`). Phase 5 (server engine) is next.
+**Current state:** Phases 1–5 are done, committed and pushed (`feat/m1-foundation`, `feat/m2-assets-documents`, `feat/m3-maintenance-engine`, `feat/m4-sync`, `feat/m5-server-engine`; none merged to `main`). Phase 5 is deployed to Supabase project `djiaejvceiiahbffqnbr`; **Firebase/FCM isn't configured yet**, so push reminders stay off until it is. Phase 6 (verified PDF) is next.

@@ -1,6 +1,7 @@
 package com.kronokeep.app
 
 import android.app.UiModeManager
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -14,6 +15,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kronokeep.app.domain.settings.ThemeMode
+import com.kronokeep.app.navigation.DeepLink
 import com.kronokeep.app.ui.AppViewModel
 import com.kronokeep.app.ui.KronoKeepAppRoot
 import com.kronokeep.app.ui.theme.KronoKeepTheme
@@ -27,6 +29,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        // On a recreate the restored back stack already reflects the link; don't apply the old intent again.
+        if (savedInstanceState == null) handleDeepLink(intent)
         setContent {
             val themeMode by appViewModel.themeMode.collectAsStateWithLifecycle()
             // Before the stored choice loads, follow the system (on API 31+ the system already reflects it).
@@ -46,6 +50,18 @@ class MainActivity : ComponentActivity() {
                 KronoKeepAppRoot()
             }
         }
+    }
+
+    /** Notification taps while the app is already open (the PendingIntents use SINGLE_TOP). */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleDeepLink(intent)
+    }
+
+    private fun handleDeepLink(intent: Intent?) {
+        val link = intent?.let { i -> DeepLink.fromExtras(i::getStringExtra) } ?: return
+        appViewModel.onDeepLink(link)
     }
 
     /**

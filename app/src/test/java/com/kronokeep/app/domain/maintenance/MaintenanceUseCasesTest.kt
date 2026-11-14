@@ -1,6 +1,13 @@
 package com.kronokeep.app.domain.maintenance
 
+import com.kronokeep.app.data.push.DueNotifier
+import com.kronokeep.app.data.push.PushReminderHandler
+import com.kronokeep.app.data.push.RoomLocalScheduleLookup
 import com.kronokeep.app.data.repository.AssetRepositoryImpl
+import com.kronokeep.app.domain.reminders.DuePush
+import com.kronokeep.app.domain.reminders.PushOutcome
+import com.kronokeep.app.domain.reminders.SkipReason
+import com.kronokeep.app.testing.FakeAuth
 import com.kronokeep.app.data.repository.MaintenanceRepositoryImpl
 import com.kronokeep.app.data.reminders.ReminderNotifier
 import com.kronokeep.app.data.reminders.ReminderRunner
@@ -139,6 +146,92 @@ class MaintenanceUseCasesTest {
         settings.reminders.value = true
         runner.run()
         assertEquals(1, notifier.posted.single().size)
+    }
+
+    private val markDone = MarkScheduleDoneUseCase(assets, maintenance, logService, clock)
+
+    @Test fun `mark done logs the task now at the current odometer`() = runBlocking {
+        val id = scooter()
+        val oilId = (addSchedules(id, listOf(oil.copy(lastDoneAt = NOW.minus(Duration.ofDays(59))))) as SaveSchedulesResult.Saved).ids.single()
+        updateOdometer(id, 11_400)
+        clock.now = NOW.plus(Duration.ofHours(3))
+
+        assertTrue(markDone(oilId) is LogServiceResult.Saved)
+        val log = maintenance.observeServiceLogs(id).first().single()
+        assertEquals(oilId, log.scheduleId)
+        assertEquals(11_400, log.odometerKm)
+        assertEquals(clock.now, log.performedAt)
+        val schedule = maintenance.getSchedule(oilId)!!
+        assertEquals(clock.now, schedule.lastDoneAt)
+        assertEquals(11_400, schedule.lastDoneKm)
+    }
+
+    @Test fun `mark done on a time-only schedule needs no odometer`() = runBlocking {
+        val aircon = assets.create(AssetDraft(AssetCategory.APPLIANCE, "Aircon"))
+        val cleaning = (addSchedules(aircon, listOf(ScheduleDraft("Cleaning", 90, null, NOW, null))) as SaveSchedulesResult.Saved).ids.single()
+
+        assertTrue(markDone(cleaning) is LogServiceResult.Saved)
+        assertEquals(null, maintenance.observeServiceLogs(aircon).first().single().odometerKm)
+    }
+
+    @Test fun `mark done without a known odometer falls back to the form`() = runBlocking {
+        val bike = assets.create(AssetDraft(AssetCategory.VEHICLE, "Mio", weeklyKmBaseline = 100))
+        val oilId = (addSchedules(bike, listOf(oil.copy(lastDoneKm = 0))) as SaveSchedulesResult.Saved).ids.single()
+
+        val result = markDone(oilId) as LogServiceResult.Invalid
+        assertEquals(MaintenanceError.OdometerNeeded, result.errors[VisitField.ODOMETER])
+        assertTrue(maintenance.observeServiceLogs(bike).first().isEmpty())
+    }
+
+    @Test fun `mark done on a deleted schedule is not found`() = runBlocking {
+        val id = scooter()
+        val oilId = (addSchedules(id, listOf(oil)) as SaveSchedulesResult.Saved).ids.single()
+        maintenance.deleteSchedule(oilId)
+        assertEquals(LogServiceResult.NotFound, markDone(oilId))
+        assertEquals(LogServiceResult.NotFound, markDone("nope"))
+    }
+
+    @Test fun `a pushed reminder and the daily job notify once between them`() = runBlocking {
+        val id = scooter()
+        val oilId = (addSchedules(id, listOf(oil.copy(lastDoneAt = NOW.minus(Duration.ofDays(59))))) as SaveSchedulesResult.Saved).ids.single()
+        val digest = RecordingNotifier()
+        val pushes = RecordingDueNotifier()
+        val ledger = MemoryLedger()
+        val settings = FakeSettings()
+        val handler = PushReminderHandler(FakeAuth(), settings, ledger, RoomLocalScheduleLookup(db.scheduleDao, db.assetDao), pushes)
+        val runner = ReminderRunner(maintenance, observeAll, ledger, settings, digest, clock)
+        val payload = mapOf(
+            "type" to "due", "schedule_id" to oilId, "asset_id" to id, "asset_name" to "Click 125i",
+            "task" to "Engine oil change", "status" to "due_soon", "next_due_at" to "",
+        )
+
+        assertTrue(handler.handle(payload) is PushOutcome.Post)
+        runner.run()
+        assertTrue("the push already covered it", digest.posted.isEmpty())
+        assertTrue(handler.handle(payload) is PushOutcome.Skip)
+        assertEquals(1, pushes.posted.size)
+    }
+
+    @Test fun `a push for a schedule deleted on this phone is dropped`() = runBlocking {
+        val id = scooter()
+        val oilId = (addSchedules(id, listOf(oil)) as SaveSchedulesResult.Saved).ids.single()
+        maintenance.deleteSchedule(oilId)
+        val pushes = RecordingDueNotifier()
+        val handler = PushReminderHandler(FakeAuth(), FakeSettings(), MemoryLedger(), RoomLocalScheduleLookup(db.scheduleDao, db.assetDao), pushes)
+        val payload = mapOf(
+            "type" to "due", "schedule_id" to oilId, "asset_id" to id, "task" to "Engine oil change", "status" to "overdue",
+        )
+
+        assertEquals(PushOutcome.Skip(SkipReason.REMOVED_LOCALLY), handler.handle(payload))
+        assertTrue(pushes.posted.isEmpty())
+    }
+
+    private class RecordingDueNotifier : DueNotifier {
+        val posted = mutableListOf<DuePush>()
+        override fun canPost() = true
+        override fun postDue(push: DuePush) {
+            posted += push
+        }
     }
 
     private class RecordingNotifier(var allowed: Boolean = true) : ReminderNotifier {

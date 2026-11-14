@@ -7,6 +7,17 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.room.Room
 import com.kronokeep.app.data.reminders.AndroidReminderNotifier
+import com.kronokeep.app.data.push.DataStorePushRegistrationStore
+import com.kronokeep.app.data.push.DueNotifier
+import com.kronokeep.app.data.push.FirebasePushTokenSource
+import com.kronokeep.app.data.push.LocalScheduleLookup
+import com.kronokeep.app.data.push.PushRegistrationStore
+import com.kronokeep.app.data.push.PushTokenRegistrar
+import com.kronokeep.app.data.push.PushTokenRemote
+import com.kronokeep.app.data.push.PushTokenSource
+import com.kronokeep.app.data.push.RoomLocalScheduleLookup
+import com.kronokeep.app.data.push.SupabasePushTokenRemote
+import com.kronokeep.app.domain.repository.PushRegistration
 import com.kronokeep.app.data.reminders.ReminderNotifier
 import com.kronokeep.app.data.repository.MaintenanceRepositoryImpl
 import com.kronokeep.app.data.settings.DataStoreSettingsRepository
@@ -129,4 +140,12 @@ abstract class RepositoryModule {
     @Binds abstract fun bindSyncStateStore(impl: DataStoreSyncStateStore): SyncStateStore
     @Binds abstract fun bindSyncScheduler(impl: WorkManagerSyncScheduler): SyncScheduler
     @Binds abstract fun bindSyncRepository(impl: SyncRepositoryImpl): SyncRepository
+
+    // Push reminders
+    @Binds abstract fun bindDueNotifier(impl: AndroidReminderNotifier): DueNotifier
+    @Binds abstract fun bindLocalScheduleLookup(impl: RoomLocalScheduleLookup): LocalScheduleLookup
+    @Binds abstract fun bindPushTokenSource(impl: FirebasePushTokenSource): PushTokenSource
+    @Binds abstract fun bindPushTokenRemote(impl: SupabasePushTokenRemote): PushTokenRemote
+    @Binds abstract fun bindPushRegistrationStore(impl: DataStorePushRegistrationStore): PushRegistrationStore
+    @Binds abstract fun bindPushRegistration(impl: PushTokenRegistrar): PushRegistration
 }
