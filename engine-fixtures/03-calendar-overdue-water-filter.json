@@ -1,0 +1,18 @@
+{
+  "name": "calendar-overdue-water-filter",
+  "description": "Water filter replaced every 180 days; due 2026-09-28, so overdue on 2026-11-14.",
+  "now": "2026-11-14T00:00:00Z",
+  "schedule": { "intervalDays": 180, "intervalKm": null, "lastDoneAt": "2026-04-01T00:00:00Z", "lastDoneKm": null },
+  "usage": { "currentOdometerKm": null, "weeklyKmBaseline": null, "readings": [] },
+  "expected": {
+    "rateSource": "none",
+    "kmPerDay": null,
+    "nextDueAt": "2026-09-28T00:00:00Z",
+    "nextDueKm": null,
+    "trigger": "calendar",
+    "status": "overdue",
+    "confidence": 1.0,
+    "uncertaintyDays": 0,
+    "projectedKm": null
+  }
+}

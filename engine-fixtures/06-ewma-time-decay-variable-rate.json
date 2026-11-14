@@ -1,0 +1,27 @@
+{
+  "name": "ewma-time-decay-variable-rate",
+  "description": "Riding more each month: 20, 30, then 40 km/day over 30, 30 and 20-day intervals. Weights = days x 0.5^(age/30) with midpoint ages 75, 45 and 20 days, so the recent 40 km/day dominates: 32.559 km/day. Weighted cv 0.23034 lowers confidence to 0.56447. 700 km left = 21.499 days after 2026-11-04, i.e. 2026-11-25T11:59:02Z, 11.5 days out, so due_soon.",
+  "now": "2026-11-14T00:00:00Z",
+  "schedule": { "intervalDays": 60, "intervalKm": 1500, "lastDoneAt": "2026-10-15T00:00:00Z", "lastDoneKm": 6500 },
+  "usage": {
+    "currentOdometerKm": 7300,
+    "weeklyKmBaseline": 210,
+    "readings": [
+      { "km": 5000, "at": "2026-08-16T00:00:00Z" },
+      { "km": 5600, "at": "2026-09-15T00:00:00Z" },
+      { "km": 6500, "at": "2026-10-15T00:00:00Z" },
+      { "km": 7300, "at": "2026-11-04T00:00:00Z" }
+    ]
+  },
+  "expected": {
+    "rateSource": "ewma",
+    "kmPerDay": 32.5591499885285,
+    "nextDueAt": "2026-11-25T11:59:02Z",
+    "nextDueKm": 8000,
+    "trigger": "usage",
+    "status": "due_soon",
+    "confidence": 0.56446702768094,
+    "uncertaintyDays": 6,
+    "projectedKm": 7626
+  }
+}

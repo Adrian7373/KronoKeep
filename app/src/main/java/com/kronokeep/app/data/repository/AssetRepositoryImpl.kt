@@ -32,6 +32,7 @@ class AssetRepositoryImpl @Inject constructor(
     private val clock: Clock,
     private val ids: IdGenerator,
     private val userIds: UserIdProvider,
+    private val recomputer: ScheduleRecomputer,
 ) : AssetRepository {
 
     override fun observeActive(): Flow<List<Asset>> =
@@ -64,6 +65,8 @@ class AssetRepositoryImpl @Inject constructor(
         outboxDao.record(SyncTables.ASSETS, id, now)
         val km = updated.currentOdometerKm
         if (km != null && km != existing.currentOdometerKm) addReading(updated, km, now)
+        // Odometer and weekly baseline feed the engine, so due dates may have moved.
+        recomputer.recompute(id, now)
         true
     }
 

@@ -1,0 +1,18 @@
+{
+  "name": "calendar-ok-aircon",
+  "description": "Aircon cleaning every 90 days. 16 days left is outside both the 14-day and the 10% (9-day) band.",
+  "now": "2026-11-14T00:00:00Z",
+  "schedule": { "intervalDays": 90, "intervalKm": null, "lastDoneAt": "2026-09-01T00:00:00Z", "lastDoneKm": null },
+  "usage": { "currentOdometerKm": null, "weeklyKmBaseline": null, "readings": [] },
+  "expected": {
+    "rateSource": "none",
+    "kmPerDay": null,
+    "nextDueAt": "2026-11-30T00:00:00Z",
+    "nextDueKm": null,
+    "trigger": "calendar",
+    "status": "ok",
+    "confidence": 1.0,
+    "uncertaintyDays": 0,
+    "projectedKm": null
+  }
+}

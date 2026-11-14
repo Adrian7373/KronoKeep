@@ -1,0 +1,22 @@
+{
+  "name": "km-overdue-observed-car-pms",
+  "description": "Car PMS every 5,000 km or 180 days. No rate (one reading, no baseline), but the recorded 25,200 km is already past the 25,000 km due point. Overdue is observed, not predicted: due at the reading time, confidence 1, even though the calendar trigger (2027-01-28) is far away.",
+  "now": "2026-11-14T00:00:00Z",
+  "schedule": { "intervalDays": 180, "intervalKm": 5000, "lastDoneAt": "2026-08-01T00:00:00Z", "lastDoneKm": 20000 },
+  "usage": {
+    "currentOdometerKm": 25200,
+    "weeklyKmBaseline": null,
+    "readings": [{ "km": 25200, "at": "2026-11-10T00:00:00Z" }]
+  },
+  "expected": {
+    "rateSource": "none",
+    "kmPerDay": null,
+    "nextDueAt": "2026-11-10T00:00:00Z",
+    "nextDueKm": 25000,
+    "trigger": "usage",
+    "status": "overdue",
+    "confidence": 1.0,
+    "uncertaintyDays": 0,
+    "projectedKm": 25200
+  }
+}

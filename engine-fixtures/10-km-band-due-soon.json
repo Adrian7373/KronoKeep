@@ -1,0 +1,22 @@
+{
+  "name": "km-band-due-soon",
+  "description": "Air filter every 10,000 km, ridden lightly (7 km/day baseline). The date is far out (2027-01-28, 75 days), but only 525 km of the 10,000 km interval are left, which is inside the 10% band, so due_soon.",
+  "now": "2026-11-14T00:00:00Z",
+  "schedule": { "intervalDays": null, "intervalKm": 10000, "lastDoneAt": "2025-06-01T00:00:00Z", "lastDoneKm": 2000 },
+  "usage": {
+    "currentOdometerKm": 11475,
+    "weeklyKmBaseline": 49,
+    "readings": [{ "km": 11475, "at": "2026-11-14T00:00:00Z" }]
+  },
+  "expected": {
+    "rateSource": "baseline",
+    "kmPerDay": 7.0,
+    "nextDueAt": "2027-01-28T00:00:00Z",
+    "nextDueKm": 12000,
+    "trigger": "usage",
+    "status": "due_soon",
+    "confidence": 0.3,
+    "uncertaintyDays": 53,
+    "projectedKm": 11475
+  }
+}

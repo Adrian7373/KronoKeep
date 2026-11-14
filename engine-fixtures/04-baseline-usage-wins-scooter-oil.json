@@ -1,0 +1,22 @@
+{
+  "name": "baseline-usage-wins-scooter-oil",
+  "description": "One reading only, so the rate is the weekly baseline: 350 / 7 = 50 km/day at confidence 0.3. The 1,500 km come due in 30 days (2026-12-01), before the 60-day calendar trigger (2026-12-31). 17 days ahead x 0.7 = 11.9, so the window is ±12 days.",
+  "now": "2026-11-14T00:00:00Z",
+  "schedule": { "intervalDays": 60, "intervalKm": 1500, "lastDoneAt": "2026-11-01T00:00:00Z", "lastDoneKm": 10000 },
+  "usage": {
+    "currentOdometerKm": 10000,
+    "weeklyKmBaseline": 350,
+    "readings": [{ "km": 10000, "at": "2026-11-01T00:00:00Z" }]
+  },
+  "expected": {
+    "rateSource": "baseline",
+    "kmPerDay": 50.0,
+    "nextDueAt": "2026-12-01T00:00:00Z",
+    "nextDueKm": 11500,
+    "trigger": "usage",
+    "status": "ok",
+    "confidence": 0.3,
+    "uncertaintyDays": 12,
+    "projectedKm": 10650
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "ewma-odometer-reset-and-close-readings",
+  "description": "A mistyped 50,000 km reading is followed by lower values, so the series restarts at 1,000 km. The 1,510 km reading six hours after 1,500 is too close to measure and is skipped for the rate, but it is still the latest reading: it anchors the projection and the recency (13.75 days). Two 25 km/day intervals: confidence 0.75 x 0.5^(13.75/30) = 0.54587. Km-only gear oil: 4,490 km / 25 = 179.6 days after 2026-10-31T06:00Z.",
+  "now": "2026-11-14T00:00:00Z",
+  "schedule": { "intervalDays": null, "intervalKm": 5000, "lastDoneAt": "2026-10-11T00:00:00Z", "lastDoneKm": 1000 },
+  "usage": {
+    "currentOdometerKm": 1510,
+    "weeklyKmBaseline": null,
+    "readings": [
+      { "km": 50000, "at": "2026-10-01T00:00:00Z" },
+      { "km": 1000, "at": "2026-10-11T00:00:00Z" },
+      { "km": 1250, "at": "2026-10-21T00:00:00Z" },
+      { "km": 1500, "at": "2026-10-31T00:00:00Z" },
+      { "km": 1510, "at": "2026-10-31T06:00:00Z" }
+    ]
+  },
+  "expected": {
+    "rateSource": "ewma",
+    "kmPerDay": 25.0,
+    "nextDueAt": "2027-04-28T20:24:00Z",
+    "nextDueKm": 6000,
+    "trigger": "usage",
+    "status": "ok",
+    "confidence": 0.54586994356582,
+    "uncertaintyDays": 76,
+    "projectedKm": 1854
+  }
+}

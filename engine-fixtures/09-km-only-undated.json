@@ -1,0 +1,22 @@
+{
+  "name": "km-only-undated",
+  "description": "Km-only gear oil with no usage rate: the due km is known (15,000) but there's no date to show. With 5,000 km left (more than 10%) the status is ok, and confidence is 0.",
+  "now": "2026-11-14T00:00:00Z",
+  "schedule": { "intervalDays": null, "intervalKm": 5000, "lastDoneAt": "2026-11-01T00:00:00Z", "lastDoneKm": 10000 },
+  "usage": {
+    "currentOdometerKm": 10000,
+    "weeklyKmBaseline": null,
+    "readings": [{ "km": 10000, "at": "2026-11-01T00:00:00Z" }]
+  },
+  "expected": {
+    "rateSource": "none",
+    "kmPerDay": null,
+    "nextDueAt": null,
+    "nextDueKm": 15000,
+    "trigger": null,
+    "status": "ok",
+    "confidence": 0.0,
+    "uncertaintyDays": null,
+    "projectedKm": 10000
+  }
+}

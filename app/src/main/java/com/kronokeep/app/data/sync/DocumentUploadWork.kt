@@ -11,6 +11,8 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
+import com.kronokeep.app.data.reminders.ReminderRunner
+import com.kronokeep.app.data.reminders.ReminderWorker
 import com.kronokeep.app.data.repository.UploadScheduler
 import com.kronokeep.app.di.ApplicationScope
 import com.kronokeep.app.domain.repository.AuthRepository
@@ -77,6 +79,7 @@ class WorkManagerUploadScheduler @Inject constructor(
 class KronoWorkerFactory @Inject constructor(
     private val auth: Provider<AuthRepository>,
     private val uploader: Provider<DocumentUploader>,
+    private val reminders: Provider<ReminderRunner>,
 ) : WorkerFactory() {
     override fun createWorker(
         appContext: Context,
@@ -85,6 +88,7 @@ class KronoWorkerFactory @Inject constructor(
     ): ListenableWorker? = when (workerClassName) {
         DocumentUploadWorker::class.java.name ->
             DocumentUploadWorker(appContext, workerParameters, auth.get(), uploader.get())
+        ReminderWorker::class.java.name -> ReminderWorker(appContext, workerParameters, reminders.get())
         else -> null
     }
 }

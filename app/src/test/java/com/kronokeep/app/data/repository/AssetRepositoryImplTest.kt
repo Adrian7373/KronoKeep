@@ -27,7 +27,7 @@ class AssetRepositoryImplTest {
     private val users = FakeUserIds()
     private val clock = MutableClock()
     private fun repo() = AssetRepositoryImpl(
-        db.assetDao, db.odometerDao, db.outboxDao, db, clock, SequentialIds(), users,
+        db.assetDao, db.odometerDao, db.outboxDao, db, clock, SequentialIds(), users, db.recomputer,
     )
 
     private val scooter = AssetDraft(

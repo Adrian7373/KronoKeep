@@ -6,7 +6,12 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.room.Room
+import com.kronokeep.app.data.reminders.AndroidReminderNotifier
+import com.kronokeep.app.data.reminders.ReminderNotifier
+import com.kronokeep.app.data.repository.MaintenanceRepositoryImpl
 import com.kronokeep.app.data.settings.DataStoreSettingsRepository
+import com.kronokeep.app.domain.repository.MaintenanceRepository
+import com.kronokeep.app.domain.repository.ReminderLedgerStore
 import com.kronokeep.app.domain.repository.SettingsRepository
 import com.kronokeep.app.data.document.AndroidDocumentImporter
 import com.kronokeep.app.data.document.DiskFileStore
@@ -46,6 +51,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import java.time.Clock
+import java.time.ZoneId
 import javax.inject.Qualifier
 import javax.inject.Singleton
 
@@ -64,6 +70,10 @@ object AppModule {
     /** Inject the clock instead of calling Instant.now(), so time-dependent logic stays testable. */
     @Provides @Singleton
     fun provideClock(): Clock = Clock.systemUTC()
+
+    /** Unscoped so a time-zone change while the app runs is picked up. Turns picked dates into instants. */
+    @Provides
+    fun provideZone(): ZoneId = ZoneId.systemDefault()
 
     @Provides @Singleton
     fun provideDatabase(@ApplicationContext context: Context): KronoDatabase =
@@ -104,4 +114,7 @@ abstract class RepositoryModule {
     @Binds abstract fun bindTransactionRunner(impl: RoomTransactionRunner): TransactionRunner
     @Binds abstract fun bindUploadScheduler(impl: WorkManagerUploadScheduler): UploadScheduler
     @Binds abstract fun bindSettingsRepository(impl: DataStoreSettingsRepository): SettingsRepository
+    @Binds abstract fun bindReminderLedgerStore(impl: DataStoreSettingsRepository): ReminderLedgerStore
+    @Binds abstract fun bindMaintenanceRepository(impl: MaintenanceRepositoryImpl): MaintenanceRepository
+    @Binds abstract fun bindReminderNotifier(impl: AndroidReminderNotifier): ReminderNotifier
 }
