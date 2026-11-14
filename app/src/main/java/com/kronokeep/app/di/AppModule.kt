@@ -1,8 +1,31 @@
 package com.kronokeep.app.di
 
 import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.room.Room
+import com.kronokeep.app.data.settings.DataStoreSettingsRepository
+import com.kronokeep.app.domain.repository.SettingsRepository
+import com.kronokeep.app.data.document.AndroidDocumentImporter
+import com.kronokeep.app.data.document.DiskFileStore
+import com.kronokeep.app.data.document.LocalFileStore
 import com.kronokeep.app.data.local.KronoDatabase
+import com.kronokeep.app.data.local.RoomTransactionRunner
+import com.kronokeep.app.data.local.TransactionRunner
+import com.kronokeep.app.data.remote.DocumentStorage
+import com.kronokeep.app.data.remote.SupabaseDocumentStorage
+import com.kronokeep.app.data.repository.DocumentRepositoryImpl
+import com.kronokeep.app.data.repository.UploadScheduler
+import com.kronokeep.app.data.repository.UserIdProvider
+import com.kronokeep.app.data.sync.WorkManagerUploadScheduler
+import com.kronokeep.app.domain.common.IdGenerator
+import com.kronokeep.app.domain.repository.AuthState
+import com.kronokeep.app.domain.repository.DocumentImporter
+import com.kronokeep.app.domain.repository.DocumentRepository
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.okhttp.OkHttp
 import com.kronokeep.app.data.local.dao.AssetDao
 import com.kronokeep.app.data.local.dao.DocumentDao
 import com.kronokeep.app.data.local.dao.MaintenanceScheduleDao
@@ -52,6 +75,21 @@ object AppModule {
     @Provides fun odometerDao(db: KronoDatabase): OdometerReadingDao = db.odometerDao()
     @Provides fun documentDao(db: KronoDatabase): DocumentDao = db.documentDao()
     @Provides fun outboxDao(db: KronoDatabase): OutboxDao = db.outboxDao()
+
+    @Provides @Singleton
+    fun provideSettingsDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
+        PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("settings") }
+
+    @Provides @Singleton
+    fun provideIdGenerator(): IdGenerator = IdGenerator.Random
+
+    @Provides
+    fun provideUserIdProvider(auth: AuthRepository): UserIdProvider =
+        UserIdProvider { (auth.state.value as? AuthState.SignedIn)?.userId }
+
+    /** Plain client for fetching signed URLs. OkHttp has no cache unless one is configured, which is what we want. */
+    @Provides @Singleton
+    fun provideHttpClient(): HttpClient = HttpClient(OkHttp)
 }
 
 @Module
@@ -59,4 +97,11 @@ object AppModule {
 abstract class RepositoryModule {
     @Binds abstract fun bindAuthRepository(impl: AuthRepositoryImpl): AuthRepository
     @Binds abstract fun bindAssetRepository(impl: AssetRepositoryImpl): AssetRepository
+    @Binds abstract fun bindDocumentRepository(impl: DocumentRepositoryImpl): DocumentRepository
+    @Binds abstract fun bindDocumentImporter(impl: AndroidDocumentImporter): DocumentImporter
+    @Binds abstract fun bindDocumentStorage(impl: SupabaseDocumentStorage): DocumentStorage
+    @Binds abstract fun bindLocalFileStore(impl: DiskFileStore): LocalFileStore
+    @Binds abstract fun bindTransactionRunner(impl: RoomTransactionRunner): TransactionRunner
+    @Binds abstract fun bindUploadScheduler(impl: WorkManagerUploadScheduler): UploadScheduler
+    @Binds abstract fun bindSettingsRepository(impl: DataStoreSettingsRepository): SettingsRepository
 }

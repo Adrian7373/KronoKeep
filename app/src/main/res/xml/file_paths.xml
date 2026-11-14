@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only camera captures are shared, and only with the camera app for the duration of the capture. -->
+<paths>
+    <cache-path name="capture" path="capture/" />
+</paths>

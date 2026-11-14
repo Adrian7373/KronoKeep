@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en-PH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KronoKeep · Direction B · Instrument Cluster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/*
+  Direction B: Instrument Cluster.
+  Source: the dashboard of the vehicle itself. Each schedule is a half-dial with a shaded
+  band for the engine's uncertainty, and the odometer rolls like a mechanical counter.
+  Dark-first: people check this in the parking lot, at night, at the gas station.
+*/
+:root{
+  --bg:#0F1C26;
+  --panel:#16283A;
+  --panel-2:#1E3448;
+  --line:#2A4258;
+  --ink:#E6EDF2;
+  --muted:#8EA3B4;
+  --primary:#6EC1F2;      /* action blue, like a backlit button */
+  --on-primary:#06202F;
+  --needle:#F3A43B;       /* amber needle, odometer and the "now" mark only */
+  --ok:#5CCB9F;
+  --soon:#F2D14C;
+  --over:#FF6F5E;
+  --r-s:8px; --r-m:14px; --r-l:22px;
+  --face:"Barlow", system-ui, sans-serif;
+  --num:"Barlow Semi Condensed", "Barlow", sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0A141C;color:var(--ink);font:400 15px/1.5 var(--face);-webkit-font-smoothing:antialiased}
+.page{max-width:1320px;margin:0 auto;padding:56px 40px 80px}
+header.top{display:flex;justify-content:space-between;align-items:end;gap:24px;margin-bottom:48px}
+header.top h1{font:700 60px/1 var(--num);letter-spacing:-.01em}
+header.top p{max-width:46ch;color:var(--muted);font-size:16px}
+a.back{color:var(--primary);font-weight:600;text-decoration:none;border-bottom:1px solid currentColor}
+
+.stage{display:grid;grid-template-columns:repeat(3,360px);gap:40px;justify-content:space-between;margin-bottom:72px}
+.phone{width:360px;height:760px;border-radius:40px;background:#03080c;padding:9px;box-shadow:0 40px 80px -40px #000}
+.screen{width:100%;height:100%;border-radius:32px;background:var(--bg);overflow:hidden;display:flex;flex-direction:column;position:relative}
+.sbar{height:32px;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font:600 12px var(--face)}
+.appbar{padding:10px 20px 12px;display:flex;justify-content:space-between;align-items:end}
+.appbar h2{font:700 26px/1.1 var(--num)}
+.appbar .sub{color:var(--muted);font-size:13px;margin-top:2px}
+.sync{font-size:12px;font-weight:600;color:var(--muted);display:flex;gap:6px;align-items:center}
+.sync i{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.content{flex:1;overflow:hidden;padding:0 14px}
+.nav{height:72px;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,1fr);background:var(--bg)}
+.nav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font:600 12px var(--face);color:var(--muted);text-decoration:none}
+.nav a svg{width:22px;height:22px}
+.nav a.on{color:var(--ink)}
+.nav a.on .pill{background:var(--panel-2);border-radius:999px;padding:3px 18px;color:var(--primary)}
+
+/* Odometer */
+.odo{background:var(--panel);border-radius:var(--r-l);padding:16px 16px 14px;margin-bottom:12px}
+.odo .k{font-size:13px;color:var(--muted);display:flex;justify-content:space-between}
+.counter{display:flex;gap:3px;margin:10px 0 12px}
+.counter .d{width:34px;height:50px;border-radius:6px;background:#0A151E;box-shadow:inset 0 0 0 1px var(--line);overflow:hidden;position:relative}
+.counter .d span{display:block;transition:transform .5s cubic-bezier(.3,1.4,.5,1)}
+.counter .d span b{display:block;height:50px;line-height:50px;text-align:center;font:600 32px var(--num);font-variant-numeric:tabular-nums}
+.counter .d.last{background:#24170a;box-shadow:inset 0 0 0 1px #5c3c12}
+.counter .d.last b{color:var(--needle)}
+.counter .unit{align-self:end;margin-left:8px;color:var(--muted);font-weight:600}
+.odo .row{display:flex;gap:8px}
+
+/* Gauges */
+.gauges{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g{background:var(--panel);border-radius:var(--r-m);padding:12px 12px 14px;cursor:pointer;transition:transform .18s ease, background-color .18s ease}
+.g:hover{transform:translateY(-2px);background:var(--panel-2)}
+.g svg{width:100%;height:auto;display:block}
+.g b{display:block;font:600 15px var(--face);margin-top:2px}
+.g .v{font:700 22px/1.1 var(--num);font-variant-numeric:tabular-nums}
+.g .v small{font:500 12px var(--face);color:var(--muted);margin-left:2px}
+.g .s{font-size:12px;color:var(--muted)}
+
+/* Schedule list */
+.sched{background:var(--panel);border-radius:var(--r-m);padding:14px;margin-bottom:10px}
+.sched .h{display:flex;justify-content:space-between;align-items:baseline}
+.sched .h b{font-weight:600}
+.sched .h span{font:700 18px var(--num)}
+.track{position:relative;height:10px;border-radius:5px;background:#0A151E;margin:12px 0 6px;overflow:hidden}
+.track .fill{position:absolute;inset:0 auto 0 0;border-radius:5px}
+.track .band{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.28) 0 2px,transparent 2px 5px)}
+.ticks{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tag{display:inline-flex;gap:6px;align-items:center;font:600 12px var(--face);padding:3px 9px;border-radius:999px;background:var(--panel-2)}
+.tag i{width:7px;height:7px;border-radius:50%}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:46px;padding:0 18px;border-radius:var(--r-s);font:600 15px var(--face);border:0;cursor:pointer;transition:transform .12s ease, filter .15s ease, background-color .15s}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.08)}
+.btn:active{transform:translateY(1px) scale(.99);filter:brightness(.95)}
+.btn:focus-visible{outline:3px solid var(--needle);outline-offset:2px}
+.btn.primary{background:var(--primary);color:var(--on-primary);box-shadow:0 0 0 1px rgba(110,193,242,.4),0 6px 20px -8px rgba(110,193,242,.7)}
+.btn.tonal{background:var(--panel-2);color:var(--ink)}
+.btn.text{background:transparent;color:var(--primary);padding:0 8px}
+.btn.grow{flex:1}
+
+/* Token sheet */
+.sheet-wrap{background:var(--panel);border-radius:var(--r-l);padding:48px;display:grid;grid-template-columns:1fr 1fr;gap:48px 64px}
+.sheet-wrap h2{font:700 30px var(--num);grid-column:1/-1}
+.blk h4{font:600 16px var(--face);margin-bottom:14px}
+.sw{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.sw div{border-radius:var(--r-m);height:84px;padding:10px;display:flex;flex-direction:column;justify-content:end;font-size:12px;font-weight:600;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.sw div small{font-weight:400;opacity:.85}
+.typescale p{display:flex;align-items:baseline;gap:16px;border-bottom:1px solid var(--line);padding:10px 0}
+.typescale p span:first-child{width:120px;flex:none;font-size:12px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.compose{font:500 13px/1.6 ui-monospace,Consolas,monospace;background:var(--bg);border-radius:var(--r-m);padding:16px;white-space:pre;overflow:auto;color:#b9cbd8}
+.principles li{margin:0 0 10px 18px;max-width:60ch}
+@media (max-width:1200px){.stage{grid-template-columns:repeat(auto-fill,360px);justify-content:center}.sheet-wrap{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <h1>Instrument Cluster</h1>
+    <div>
+      <p>Built like the dashboard of the vehicle you're tracking, and dark first. Each maintenance item is a dial, and its hatched band is the engine's honest uncertainty. The odometer is a mechanical counter that rolls when you update it. Amber is used only for the needle and the odometer, so the status colours stay readable.</p>
+      <p style="margin-top:12px"><a class="back" href="index.html">All three directions</a></p>
+    </div>
+  </header>
+
+  <section class="stage">
+    <!-- Dashboard -->
+    <div class="phone"><div class="screen">
+      <div class="sbar"><span>9:41</span><span>5G ▮▮▮</span></div>
+      <div class="appbar"><div><h2>Honda Click 125i</h2><div class="sub">1 of 4 assets</div></div><div class="sync"><i></i>Synced</div></div>
+      <div class="content">
+        <div class="odo">
+          <div class="k"><span>Odometer</span><span>~38 km per day</span></div>
+          <div class="counter" id="counter"></div>
+          <div class="row"><button class="btn primary grow" id="bump">Update odometer</button><button class="btn tonal">Log service</button></div>
+        </div>
+        <div class="gauges">
+          <div class="g">
+            <svg viewBox="0 0 120 68"><path d="M10 62a50 50 0 0 1 100 0" fill="none" stroke="#0A151E" stroke-width="10" stroke-linecap="round"/>
+              <path d="M10 62a50 50 0 0 1 100 0" fill="none" stroke="var(--over)" stroke-width="10" stroke-linecap="round" stroke-dasharray="157 157"/>
+              <line x1="60" y1="62" x2="106" y2="50" stroke="var(--needle)" stroke-width="3" stroke-linecap="round"/><circle cx="60" cy="62" r="5" fill="var(--needle)"/></svg>
+            <b>Engine oil</b><div class="v" style="color:var(--over)">+24<small>km over</small></div><div class="s">Every 1,500 km</div>
+          </div>
+          <div class="g">
+            <svg viewBox="0 0 120 68"><path d="M10 62a50 50 0 0 1 100 0" fill="none" stroke="#0A151E" stroke-width="10" stroke-linecap="round"/>
+              <path d="M10 62a50 50 0 0 1 100 0" fill="none" stroke="var(--soon)" stroke-width="10" stroke-linecap="round" stroke-dasharray="128 157"/>
+              <path d="M10 62a50 50 0 0 1 100 0" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="10" stroke-dasharray="0 120 20 200"/>
+              <line x1="60" y1="62" x2="98" y2="32" stroke="var(--needle)" stroke-width="3" stroke-linecap="round"/><circle cx="60" cy="62" r="5" fill="var(--needle)"/></svg>
+            <b>Gear oil</b><div class="v" style="color:var(--soon)">9–13<small>days</small></div><div class="s">About 410 km left</div>
+          </div>
+          <div class="g">
+            <svg viewBox="0 0 120 68"><path d="M10 62a50 50 0 0 1 100 0" fill="none" stroke="#0A151E" stroke-width="10" stroke-linecap="round"/>
+              <path d="M10 62a50 50 0 0 1 100 0" fill="none" stroke="var(--ok)" stroke-width="10" stroke-linecap="round" stroke-dasharray="66 157"/>
+              <line x1="60" y1="62" x2="44" y2="15" stroke="var(--needle)" stroke-width="3" stroke-linecap="round"/><circle cx="60" cy="62" r="5" fill="var(--needle)"/></svg>
+            <b>CVT cleaning</b><div class="v" style="color:var(--ok)">78–92<small>days</small></div><div class="s">Low confidence</div>
+          </div>
+          <div class="g">
+            <svg viewBox="0 0 120 68"><path d="M10 62a50 50 0 0 1 100 0" fill="none" stroke="#0A151E" stroke-width="10" stroke-linecap="round"/>
+              <path d="M10 62a50 50 0 0 1 100 0" fill="none" stroke="var(--ok)" stroke-width="10" stroke-linecap="round" stroke-dasharray="30 157"/>
+              <line x1="60" y1="62" x2="20" y2="38" stroke="var(--needle)" stroke-width="3" stroke-linecap="round"/><circle cx="60" cy="62" r="5" fill="var(--needle)"/></svg>
+            <b>Air filter</b><div class="v" style="color:var(--ok)">5–6<small>months</small></div><div class="s">Every 10,000 km</div>
+          </div>
+        </div>
+      </div>
+      <nav class="nav">
+        <a class="on" href="#"><span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16a8 8 0 1 1 16 0M12 16l4-5"/></svg></span>Dashboard</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>Assets</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>Settings</a>
+      </nav>
+    </div></div>
+
+    <!-- Schedule tab -->
+    <div class="phone"><div class="screen">
+      <div class="sbar"><span>9:41</span><span>5G ▮▮▮</span></div>
+      <div class="appbar"><div><h2>Toyota Vios</h2><div class="sub">Schedule · 41,860 km</div></div><div class="sync"><i style="background:var(--soon)"></i>Saved on phone</div></div>
+      <div class="content">
+        <div class="sched">
+          <div class="h"><b>PMS 10,000 km</b><span style="color:var(--soon)">9–13 days</span></div>
+          <div class="track"><div class="fill" style="width:86%;background:var(--soon)"></div><div class="band" style="left:84%;width:9%"></div></div>
+          <div class="ticks"><span>35,000</span><span>Due ~45,000 km or 2 Dec</span></div>
+        </div>
+        <div class="sched">
+          <div class="h"><b>Tire rotation</b><span style="color:var(--ok)">2–3 months</span></div>
+          <div class="track"><div class="fill" style="width:34%;background:var(--ok)"></div><div class="band" style="left:30%;width:12%"></div></div>
+          <div class="ticks"><span>38,000</span><span>Due ~48,000 km</span></div>
+        </div>
+        <div class="sched">
+          <div class="h"><b>Registration (LTO)</b><span style="color:var(--over)">5 days overdue</span></div>
+          <div class="track"><div class="fill" style="width:100%;background:var(--over)"></div></div>
+          <div class="ticks"><span>Nov 2025</span><span>Was due 9 Nov</span></div>
+        </div>
+        <div class="sched">
+          <div class="h"><b>Brake fluid</b><span style="color:var(--ok)">8–11 months</span></div>
+          <div class="track"><div class="fill" style="width:18%;background:var(--ok)"></div><div class="band" style="left:14%;width:16%"></div></div>
+          <div class="ticks"><span>Jan 2026</span><span>Every 2 years</span></div>
+        </div>
+        <div class="chips" style="margin-top:6px">
+          <span class="tag"><i style="background:var(--ok)"></i>On track</span>
+          <span class="tag"><i style="background:var(--soon)"></i>Due soon</span>
+          <span class="tag"><i style="background:var(--over)"></i>Overdue</span>
+          <span class="tag" style="background:transparent;box-shadow:inset 0 0 0 1px var(--line)">▥ Uncertainty</span>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16a8 8 0 1 1 16 0M12 16l4-5"/></svg>Dashboard</a>
+        <a class="on" href="#"><span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></span>Assets</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>Settings</a>
+      </nav>
+    </div></div>
+
+    <!-- Assets list -->
+    <div class="phone"><div class="screen">
+      <div class="sbar"><span>9:41</span><span>5G ▮▮▮</span></div>
+      <div class="appbar"><div><h2>Assets</h2><div class="sub">4 active · 1 archived</div></div></div>
+      <div class="content">
+        <div class="sched" style="display:grid;grid-template-columns:48px 1fr auto;gap:12px;align-items:center;cursor:pointer">
+          <svg viewBox="0 0 48 48" width="48" height="48"><rect width="48" height="48" rx="12" fill="#1E3448"/><g fill="none" stroke="#6EC1F2" stroke-width="2"><circle cx="15" cy="31" r="5"/><circle cx="33" cy="31" r="5"/><path d="M15 31h7l5-11h6l1 11M27 20l-3-5h-5"/></g></svg>
+          <div><b>Honda Click 125i</b><div class="s" style="color:var(--muted);font-size:13px">8,412 km · 1 overdue</div></div>
+          <span class="tag"><i style="background:var(--over)"></i>1</span>
+        </div>
+        <div class="sched" style="display:grid;grid-template-columns:48px 1fr auto;gap:12px;align-items:center">
+          <svg viewBox="0 0 48 48" width="48" height="48"><rect width="48" height="48" rx="12" fill="#1E3448"/><g fill="none" stroke="#6EC1F2" stroke-width="2"><path d="M9 29l3-9h24l3 9v5H9z"/><circle cx="16" cy="34" r="2.5"/><circle cx="32" cy="34" r="2.5"/></g></svg>
+          <div><b>Toyota Vios</b><div style="color:var(--muted);font-size:13px">41,860 km · PMS soon</div></div>
+          <span class="tag"><i style="background:var(--soon)"></i>2</span>
+        </div>
+        <div class="sched" style="display:grid;grid-template-columns:48px 1fr auto;gap:12px;align-items:center">
+          <svg viewBox="0 0 48 48" width="48" height="48"><rect width="48" height="48" rx="12" fill="#1E3448"/><g fill="none" stroke="#6EC1F2" stroke-width="2"><rect x="9" y="15" width="30" height="12" rx="3"/><path d="M15 32c0-2 2-3 2-5M24 34c0-2 2-3 2-5M33 32c0-2 2-3 2-5"/></g></svg>
+          <div><b>Carrier aircon</b><div style="color:var(--muted);font-size:13px">Bedroom · cleaning in 12 d</div></div>
+          <span class="tag"><i style="background:var(--soon)"></i>1</span>
+        </div>
+        <div class="sched" style="display:grid;grid-template-columns:48px 1fr auto;gap:12px;align-items:center">
+          <svg viewBox="0 0 48 48" width="48" height="48"><rect width="48" height="48" rx="12" fill="#1E3448"/><g fill="none" stroke="#6EC1F2" stroke-width="2"><rect x="9" y="13" width="30" height="19" rx="2"/><path d="M19 37h10"/></g></svg>
+          <div><b>Samsung 55" TV</b><div style="color:var(--muted);font-size:13px">Warranty until Mar 2027</div></div>
+          <span class="tag"><i style="background:var(--ok)"></i>OK</span>
+        </div>
+        <button class="btn primary" style="position:absolute;right:20px;bottom:92px;height:56px;border-radius:16px">＋ Add asset</button>
+      </div>
+      <nav class="nav">
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16a8 8 0 1 1 16 0M12 16l4-5"/></svg>Dashboard</a>
+        <a class="on" href="#"><span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></span>Assets</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>Settings</a>
+      </nav>
+    </div></div>
+  </section>
+
+  <section class="sheet-wrap">
+    <h2>Tokens</h2>
+    <div class="blk">
+      <h4>Colour (dark first)</h4>
+      <div class="sw">
+        <div style="background:var(--bg)">Night<small>#0F1C26 · background</small></div>
+        <div style="background:var(--panel)">Panel<small>#16283A · surface</small></div>
+        <div style="background:var(--panel-2)">Panel raised<small>#1E3448 · container</small></div>
+        <div style="background:var(--primary);color:var(--on-primary)">Backlight<small>#6EC1F2 · primary</small></div>
+        <div style="background:var(--needle);color:#2a1700">Needle<small>#F3A43B · odometer only</small></div>
+        <div style="background:var(--ok);color:#052a1c">Green<small>#5CCB9F · OK</small></div>
+        <div style="background:var(--soon);color:#2a2200">Yellow<small>#F2D14C · due soon</small></div>
+        <div style="background:var(--over);color:#2d0600">Warning<small>#FF6F5E · overdue</small></div>
+      </div>
+    </div>
+    <div class="blk typescale">
+      <h4>Type: Barlow + Barlow Semi Condensed</h4>
+      <p><span>Headline 28</span><span style="font:700 28px var(--num)">Toyota Vios</span></p>
+      <p><span>Title 18</span><span style="font:600 18px var(--face)">PMS 10,000 km</span></p>
+      <p><span>Body 15</span><span>Every 5,000 km or 6 months</span></p>
+      <p><span>Label 12</span><span style="font-size:12px;font-weight:600;color:var(--muted)">About 410 km left</span></p>
+      <p><span>Counter 32</span><span style="font:600 32px var(--num);color:var(--needle);font-variant-numeric:tabular-nums">008412</span></p>
+    </div>
+    <div class="blk">
+      <h4>Buttons and status</h4>
+      <div class="chips" style="margin-bottom:14px"><button class="btn primary">Add asset</button><button class="btn tonal">Log service</button><button class="btn text">Cancel</button></div>
+      <div class="chips"><span class="tag"><i style="background:var(--ok)"></i>On track</span><span class="tag"><i style="background:var(--soon)"></i>Due in 9–13 days</span><span class="tag"><i style="background:var(--over)"></i>5 days overdue</span><span class="tag"><i style="background:var(--soon)"></i>Saved on phone</span><span class="tag"><i style="background:var(--ok)"></i>Synced</span></div>
+    </div>
+    <div class="blk">
+      <h4>Compose mapping</h4>
+<div class="compose">darkColorScheme(
+  primary = Color(0xFF6EC1F2),
+  onPrimary = Color(0xFF06202F),
+  background = Color(0xFF0F1C26),
+  surface = Color(0xFF16283A),
+  surfaceContainer = Color(0xFF1E3448),
+  tertiary = Color(0xFFF3A43B), // needle
+)
+StatusColors(ok = 0xFF5CCB9F,
+  dueSoon = 0xFFF2D14C, overdue = 0xFFFF6F5E)
+Light scheme: same hues, darker tones.</div>
+    </div>
+    <div class="blk principles" style="grid-column:1/-1">
+      <h4>Principles</h4>
+      <ul>
+        <li>Each schedule reads at a glance like a gauge: where the needle sits, and how wide the hatched band of doubt is.</li>
+        <li>Amber is the instrument colour (needle, odometer, focus ring) and never a status colour.</li>
+        <li>Numbers are condensed with tabular figures so km and days never jitter while they update.</li>
+        <li>Motion appears only when the user acts. The odometer rolls when updated, and nothing else moves by itself.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+<script>
+  // Mechanical odometer: each digit is a strip of 0-9 translated into view.
+  const el = document.getElementById('counter');
+  let km = 8412;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function render(){
+    const s = String(km).padStart(6,'0');
+    if(!el.children.length){
+      for(let i=0;i<6;i++){
+        const d=document.createElement('div');d.className='d'+(i===5?' last':'');
+        const strip=document.createElement('span');
+        for(let n=0;n<10;n++){const b=document.createElement('b');b.textContent=n;strip.appendChild(b)}
+        d.appendChild(strip);el.appendChild(d);
+      }
+      const u=document.createElement('span');u.className='unit';u.textContent='km';el.appendChild(u);
+    }
+    [...el.querySelectorAll('.d span')].forEach((strip,i)=>{
+      if(reduce) strip.style.transition='none';
+      strip.style.transform=`translateY(${-50*Number(s[i])}px)`;
+    });
+  }
+  render();
+  document.getElementById('bump').addEventListener('click',()=>{km+=Math.floor(Math.random()*40)+12;render()});
+</script>
+</body>
+</html>

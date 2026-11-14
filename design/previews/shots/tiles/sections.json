@@ -1,0 +1,15 @@
+{
+ "url": "http://127.0.0.1:5300/c-asset-tag.html",
+ "views": {
+  "desktop": {
+   "width": 1440,
+   "height": 900,
+   "navH": 0,
+   "scrollHeight": 2246,
+   "screens": 2.5,
+   "sections": [],
+   "consoleErrors": []
+  }
+ },
+ "at": "2026-11-14T15:05:41.213Z"
+}

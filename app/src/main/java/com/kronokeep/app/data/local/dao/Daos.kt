@@ -16,9 +16,13 @@ interface AssetDao {
     @Query("SELECT * FROM assets WHERE deletedAt IS NULL AND archivedAt IS NULL ORDER BY updatedAt DESC")
     fun observeActive(): Flow<List<AssetEntity>>
 
+    @Query("SELECT * FROM assets WHERE deletedAt IS NULL AND archivedAt IS NOT NULL ORDER BY archivedAt DESC")
+    fun observeArchived(): Flow<List<AssetEntity>>
+
     @Query("SELECT * FROM assets WHERE id = :id AND deletedAt IS NULL")
     fun observeById(id: String): Flow<AssetEntity?>
 
+    /** Includes soft-deleted rows; callers check `deletedAt`. */
     @Query("SELECT * FROM assets WHERE id = :id")
     suspend fun getById(id: String): AssetEntity?
 
@@ -58,6 +62,21 @@ interface DocumentDao {
     @Query("SELECT * FROM documents WHERE assetId = :assetId AND deletedAt IS NULL ORDER BY createdAt DESC")
     fun observeForAsset(assetId: String): Flow<List<DocumentEntity>>
 
+    /** Includes soft-deleted rows; callers check `deletedAt`. */
+    @Query("SELECT * FROM documents WHERE id = :id")
+    suspend fun getById(id: String): DocumentEntity?
+
+    /** Local files still waiting for the private bucket. FAILED rows have lost their local copy. */
+    @Query(
+        """
+        SELECT * FROM documents
+        WHERE userId = :userId AND storagePath IS NULL AND localPath IS NOT NULL
+          AND deletedAt IS NULL AND syncState != 'FAILED'
+        ORDER BY createdAt
+        """,
+    )
+    suspend fun pendingUploads(userId: String): List<DocumentEntity>
+
     @Upsert
     suspend fun upsert(document: DocumentEntity)
 }
@@ -72,6 +91,9 @@ interface OutboxDao {
 
     @Query("DELETE FROM outbox WHERE seq = :seq")
     suspend fun remove(seq: Long)
+
+    @Query("DELETE FROM outbox WHERE tableName = :tableName AND rowId = :rowId")
+    suspend fun removeFor(tableName: String, rowId: String)
 
     @Query("SELECT COUNT(*) FROM outbox")
     fun observePendingCount(): Flow<Int>

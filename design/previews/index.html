@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en-PH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KronoKeep · Design directions</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Barlow+Semi+Condensed:wght@700&family=Schibsted+Grotesk:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#E6EAEA;color:#152022;font:400 16px/1.5 "Schibsted Grotesk",system-ui,sans-serif;min-height:100vh;display:flex;align-items:center}
+main{max-width:1200px;margin:0 auto;padding:56px 40px;width:100%}
+h1{font:800 44px/1.1 "Schibsted Grotesk";letter-spacing:-.02em;margin-bottom:8px}
+p.lead{color:#566769;max-width:60ch;margin-bottom:40px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+a.card{display:block;text-decoration:none;color:inherit;border-radius:20px;overflow:hidden;transition:transform .18s ease, box-shadow .18s ease}
+a.card:hover{transform:translateY(-2px);box-shadow:0 14px 28px -18px rgba(0,0,0,.5)}
+a.card:focus-visible{outline:3px solid #A87A22;outline-offset:3px}
+.sw{height:200px;display:flex;align-items:end;padding:22px}
+.sw span{font-size:36px;line-height:1}
+.body{background:#fff;padding:18px 22px 22px}
+.body b{display:block;font-size:17px;margin-bottom:4px}
+.body p{font-size:14px;color:#566769}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Three directions for KronoKeep</h1>
+  <p class="lead">Each one has three app screens, a token sheet and a ready-to-paste Compose colour scheme. Pick one and I'll turn it into <code>ui/theme</code>.</p>
+  <div class="grid">
+    <a class="card" href="a-service-booklet.html">
+      <div class="sw" style="background:repeating-linear-gradient(#F4F6F7 0 31px,#C8D2D9 31px 32px);color:#1B2B4A"><span style="font-family:'Bricolage Grotesque';font-weight:800">Service<br>Booklet</span></div>
+      <div class="body"><b>A · Service Booklet</b><p>Ballpoint navy on ledger paper. Every service is a stamp, and locked logs carry a red seal. Light first.</p></div>
+    </a>
+    <a class="card" href="b-instrument-cluster.html">
+      <div class="sw" style="background:radial-gradient(circle at 80% 120%,#1E3448 0 40%,#0F1C26 41%);color:#E6EDF2"><span style="font-family:'Barlow Semi Condensed';font-weight:700">Instrument<br><span style="color:#F3A43B">Cluster</span></span></div>
+      <div class="body"><b>B · Instrument Cluster</b><p>Dark-first gauges with hatched uncertainty bands and a rolling mechanical odometer.</p></div>
+    </a>
+    <a class="card" href="c-asset-tag.html">
+      <div class="sw" style="background:linear-gradient(115deg,#F7F9F9,#E4EAEA 38%,#F4F7F7 55%,#DCE3E3);color:#0E3B43"><span style="font-family:'Schibsted Grotesk';font-weight:800;letter-spacing:-.02em">Asset<br>Tag</span></div>
+      <div class="body"><b>C · Asset Tag</b><p>Your current teal and brass, evolved. Aluminium asset-tag cards and due-window timelines.</p></div>
+    </a>
+  </div>
+</main>
+</body>
+</html>
