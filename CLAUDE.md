@@ -155,18 +155,17 @@ Agreed decisions: time-decay EWMA (per-interval km/day weighted by a 30-day half
 - [x] Daily `ReminderWorker` (KEEP periodic, initial delay to 08:00). `ReminderRunner` recomputes, plans with the pure `ReminderPlanner`, posts one digest notification, and saves a DataStore ledger only after posting, so blocked notifications aren't lost. Recompute also runs on app start.
 - [x] Tests: engine, fixtures, validator, presets, use cases, repository (transactions, rollback, back-dated logs, lock, revert on delete), recompute, planner, dashboard, settings and ledger. Compose: `AddAssetFlowTest` (4 tests, now including the schedules step) and the new `LogServiceFlowTest` (2 tests), passing on an API 37 emulator.
 
+**Phase 4: Sync ✅** (2026-11-10, `feat/m4-sync` from `feat/m3-maintenance-engine`; not yet merged)
+- [x] `SyncEngine` (`data/sync/`) runs claim → push → pull. Pushes go parents first, 100 rows per batch. Pulls take pages of 500 by keyset (`updated_at`, `id`), because one `now()` can stamp many rows. Cursors are stored in DataStore per account and table. `SyncWorker` uses KEEP and re-runs up to 3 times inside the worker when writes land mid-run. `SyncTrigger` fires on sign-in and 2 s after outbox writes settle. There's also a 6-hour periodic pull, and "Sync now" (REPLACE) in Settings.
+- [x] Last-write-wins: before pushing, the engine reads the server copies. A server row newer than the local edit (compared at millis) wins, and a log locked by a report always wins. A row turns SYNCED only if its outbox `seq` hasn't changed, so edits made mid-push survive. On pull, pending local edits that are newer are kept. Soft deletes arrive as ordinary rows. Pulled readings and schedules trigger a recompute.
+- [x] Errors: a 4xx (other than 401, 408 or 429) is a rejection. The engine retries that batch row by row and keeps `attempts` and `lastError`; after 5 failures the row becomes FAILED until it's edited again. Everything else is transient, and WorkManager retries it with backoff. A child row whose parent isn't local yet stops its table's cursor, and another pass picks it up.
+- [x] Offline rows (`userId = null`) are claimed at the start of every sync, and claiming a document kicks `UploadScheduler`. Documents wait in the outbox until `storagePath` is set; one deleted or lost before upload is dropped from the outbox. Once a document's soft delete has been pushed, its storage object is deleted (best effort).
+- [x] UI: Settings has a Sync row (status line, spinner, "Sync now"). The asset and document badges were already in place. No Room schema change and no new migration.
+- [x] Tests: 31 new JVM tests (175 total), covering `SyncEngineTest` (16), `SyncTableTest` (7), `SyncRepositoryImplTest` (3) and `SyncStatusTextTest` (5). A `FakeSyncRemote` models server-owned `updated_at` with microseconds, RLS on `user_id`, rejections and outages. **Not yet exercised against a live Supabase project.**
+
 ### Current
 
-**Phase 4: Sync ⏳** (next up; branch `feat/m4-sync` from `feat/m3-maintenance-engine`)
-- [ ] `SyncWorker`: push the outbox, then pull by `updated_at > lastSyncedAt` (paged)
-- [ ] Last-write-wins conflict handling, soft-delete propagation, `syncState` in the UI
-- [ ] Claim offline rows (`userId = null`) on first sign-in, then kick `UploadScheduler` (the uploader only takes rows owned by the signed-in user)
-- [ ] Hold back `documents` outbox entries until `storagePath` is set (the server column is NOT NULL)
-- [ ] Optional: delete orphaned storage objects for soft-deleted documents
-
-### Future
-
-**Phase 5: Server engine ⏳**
+**Phase 5: Server engine ⏳** (next up)
 - [ ] `supabase/functions/_shared/engine.ts`, passing the same fixtures as the Kotlin engine
 - [ ] `recompute-due` Edge Function, run hourly by `pg_cron`
 - [ ] FCM: device token registration, a reminder log so each reminder is sent once, notification actions
@@ -192,5 +191,7 @@ Agreed decisions: time-decay EWMA (per-interval km/day weighted by a 30-day half
 - Configurable units and currency (km/mi, non-PHP).
 - Editing a service log in place (Phase 3 ships delete plus re-log). Deferred because a multi-task visit is several rows, and editing one needs a "visit" grouping the schema doesn't have yet.
 - Deep-linking a reminder notification to the asset (it opens the app for now). Deferred to Phase 5 with the FCM notification actions.
+- Separating local data per account on sign-out. Deferred because rows left by one account stay visible (though never pushed) if a different account signs in on the same phone, and wiping on sign-out would destroy unsynced work.
+- Base-version conflict detection, meaning each row stores the server `updated_at` it was edited from. Deferred because v1 LWW compares the phone's clock with server time, so a badly skewed clock resolves conflicts only approximately. It needs a Room schema v2.
 
-**Current state:** Phases 1–3 are done, committed and pushed (`feat/m1-foundation`, `feat/m2-assets-documents`, `feat/m3-maintenance-engine`; none merged to `main`). Phase 4 (sync) is next.
+**Current state:** Phases 1–4 are done, committed and pushed (`feat/m1-foundation`, `feat/m2-assets-documents`, `feat/m3-maintenance-engine`, `feat/m4-sync`; none merged to `main`). Phase 5 (server engine) is next.
