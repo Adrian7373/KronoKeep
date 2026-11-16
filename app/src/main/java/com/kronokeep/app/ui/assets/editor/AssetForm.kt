@@ -7,6 +7,7 @@ import com.kronokeep.app.domain.model.AssetCategory
 import com.kronokeep.app.domain.model.AssetDraft
 import com.kronokeep.app.domain.model.Peso
 import java.time.LocalDate
+import java.util.Locale
 
 /** Raw text the user typed. Converted to an [AssetDraft] only when moving on or saving. */
 data class AssetForm(
@@ -72,7 +73,7 @@ data class AssetForm(
             model = asset.model.orEmpty(),
             serialNo = asset.serialNo.orEmpty(),
             purchaseDate = asset.purchaseDate,
-            price = asset.price?.let { "%d.%02d".format(it.centavos / 100, it.centavos % 100) }.orEmpty(),
+            price = asset.price?.let(::priceText).orEmpty(),
             warrantyExpiresOn = asset.warrantyExpiresOn,
             odometerKm = asset.currentOdometerKm?.toString().orEmpty(),
             weeklyKm = asset.weeklyKmBaseline?.toString().orEmpty(),
@@ -80,5 +81,9 @@ data class AssetForm(
         )
 
         val BASELINE_FIELDS = setOf(AssetField.ODOMETER, AssetField.WEEKLY_KM)
+
+        /** How a price is shown in the editable field: `1299.50`, no symbol or grouping. */
+        fun priceText(price: Peso): String =
+            String.format(Locale.ROOT, "%d.%02d", price.centavos / 100, price.centavos % 100)
     }
 }

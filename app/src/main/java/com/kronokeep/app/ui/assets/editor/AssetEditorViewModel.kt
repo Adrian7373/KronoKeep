@@ -1,7 +1,15 @@
 package com.kronokeep.app.ui.assets.editor
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.kronokeep.app.data.document.CaptureFiles
+import com.kronokeep.app.domain.capture.ReceiptScan
+import com.kronokeep.app.domain.capture.ReceiptScanResult
+import com.kronokeep.app.domain.capture.ScanReceiptUseCase
+import com.kronokeep.app.domain.document.AddDocumentResult
+import com.kronokeep.app.domain.document.AddDocumentUseCase
+import com.kronokeep.app.domain.model.DocumentKind
 import com.kronokeep.app.domain.asset.AssetError
 import com.kronokeep.app.domain.asset.AssetField
 import com.kronokeep.app.domain.asset.AssetValidator
@@ -23,6 +31,8 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,6 +52,24 @@ data class SuggestedTask(
     val lastDoneKm: String = "",
 )
 
+/**
+ * A receipt photo picked or taken in the editor. It's read on the device, reviewed, and (unless the user
+ * opts out) attached to the asset as a RECEIPT document once the asset is saved.
+ */
+data class ReceiptState(
+    val uri: String,
+    /** Our own FileProvider capture, which we delete once it's attached or dropped. */
+    val isCapture: Boolean,
+    val scanning: Boolean = true,
+    val scan: ReceiptScan? = null,
+    val selected: Set<ReceiptField> = emptySet(),
+    /** Found fields whose current form value would be overwritten. */
+    val conflicts: Set<ReceiptField> = emptySet(),
+    val reviewOpen: Boolean = false,
+    val applied: Boolean = false,
+    val attach: Boolean = true,
+)
+
 data class AssetEditorUiState(
     val isEdit: Boolean,
     val step: WizardStep,
@@ -57,6 +85,9 @@ data class AssetEditorUiState(
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val notFound: Boolean = false,
+    val receipt: ReceiptState? = null,
+    /** One-shot snackbar text, cleared by [AssetEditorViewModel.onMessageShown]. */
+    val message: String? = null,
     /** One-shot: set after a successful save, cleared by [AssetEditorViewModel.onSavedHandled]. */
     val savedAssetId: String? = null,
 ) {
@@ -83,6 +114,9 @@ class AssetEditorViewModel @AssistedInject constructor(
     private val createAsset: CreateAssetUseCase,
     private val updateAsset: UpdateAssetUseCase,
     private val addSchedules: AddSchedulesUseCase,
+    private val scanReceipt: ScanReceiptUseCase,
+    private val addDocument: AddDocumentUseCase,
+    private val captures: CaptureFiles,
     private val repository: AssetRepository,
     private val clock: Clock,
     private val zone: ZoneId,
@@ -134,6 +168,110 @@ class AssetEditorViewModel @AssistedInject constructor(
     /** Applies a field edit and clears that field's error. */
     fun edit(field: AssetField?, change: (AssetForm) -> AssetForm) {
         _state.update { it.copy(form = change(it.form), errors = if (field == null) it.errors else it.errors - field) }
+    }
+
+    // --- Receipt scan --------------------------------------------------------------------------------
+
+    private var scanJob: Job? = null
+
+    fun newCaptureUri(): String = captures.newCaptureUri()
+
+    fun onCaptureCancelled(uri: String) = captures.delete(uri)
+
+    /** A new receipt replaces any previous one; its capture file is dropped. */
+    fun onReceiptPicked(uri: String, isCapture: Boolean) {
+        scanJob?.cancel()
+        dropReceiptFile()
+        _state.update { it.copy(receipt = ReceiptState(uri = uri, isCapture = isCapture)) }
+        scanJob = viewModelScope.launch {
+            val result = scanReceipt(uri)
+            _state.update { s ->
+                val receipt = s.receipt?.takeIf { it.uri == uri } ?: return@update s
+                when (result) {
+                    is ReceiptScanResult.Found -> s.copy(
+                        receipt = receipt.copy(
+                            scanning = false,
+                            scan = result.scan,
+                            selected = ReceiptFill.defaultSelection(s.form, result.scan),
+                            conflicts = ReceiptFill.conflicts(s.form, result.scan),
+                            reviewOpen = true,
+                        ),
+                    )
+                    ReceiptScanResult.NothingFound -> s.copy(
+                        receipt = receipt.copy(scanning = false),
+                        message = "Couldn't find any details on that receipt. It will still be attached.",
+                    )
+                    is ReceiptScanResult.Failed -> s.copy(
+                        receipt = receipt.copy(scanning = false),
+                        message = "Couldn't read the photo: ${result.message}",
+                    )
+                }
+            }
+        }
+    }
+
+    fun toggleReceiptField(field: ReceiptField) = updateReceipt {
+        it.copy(selected = if (field in it.selected) it.selected - field else it.selected + field)
+    }
+
+    /** Reopens the review; conflicts are recomputed because the form may have changed since the scan. */
+    fun reviewReceipt() = _state.update { s ->
+        val receipt = s.receipt ?: return@update s
+        val scan = receipt.scan ?: return@update s
+        s.copy(receipt = receipt.copy(reviewOpen = true, conflicts = ReceiptFill.conflicts(s.form, scan)))
+    }
+
+    fun dismissReceiptReview() = updateReceipt { it.copy(reviewOpen = false) }
+
+    fun applyReceipt() {
+        _state.update { s ->
+            val receipt = s.receipt ?: return@update s
+            val scan = receipt.scan ?: return@update s
+            s.copy(
+                form = ReceiptFill.apply(s.form, scan, receipt.selected),
+                errors = s.errors - receipt.selected.map { it.assetField }.toSet(),
+                receipt = receipt.copy(reviewOpen = false, applied = receipt.selected.isNotEmpty()),
+            )
+        }
+    }
+
+    fun setAttachReceipt(attach: Boolean) = updateReceipt { it.copy(attach = attach) }
+
+    fun removeReceipt() {
+        scanJob?.cancel()
+        dropReceiptFile()
+        _state.update { it.copy(receipt = null) }
+    }
+
+    fun showMessage(text: String) = _state.update { it.copy(message = text) }
+
+    fun onMessageShown() = _state.update { it.copy(message = null) }
+
+    private fun updateReceipt(change: (ReceiptState) -> ReceiptState) {
+        _state.update { s -> s.receipt?.let { s.copy(receipt = change(it)) } ?: s }
+    }
+
+    private fun dropReceiptFile() {
+        _state.value.receipt?.takeIf { it.isCapture }?.let { captures.delete(it.uri) }
+    }
+
+    /** Best effort: the asset is already saved, so a failed attach is logged rather than blocking the user. */
+    private suspend fun attachReceipt(assetId: String) {
+        val receipt = _state.value.receipt?.takeIf { it.attach } ?: return
+        val result = try {
+            addDocument(assetId, DocumentKind.RECEIPT, receipt.uri, if (receipt.isCapture) "image/jpeg" else null)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            AddDocumentResult.Failed(e.message ?: "error")
+        }
+        if (result !is AddDocumentResult.Added) Log.w(TAG, "Receipt not attached: $result")
+        dropReceiptFile()
+        _state.update { it.copy(receipt = null) }
+    }
+
+    override fun onCleared() {
+        dropReceiptFile()
     }
 
     fun choosePreset(preset: Preset?) {
@@ -216,6 +354,7 @@ class AssetEditorViewModel @AssistedInject constructor(
                 // Pre-validated above, so this only fails if the asset vanished in between.
                 addSchedules(result.id, schedules)
             }
+            if (result is SaveAssetResult.Saved) attachReceipt(result.id)
             _state.update { current ->
                 when (result) {
                     is SaveAssetResult.Saved -> current.copy(isSaving = false, savedAssetId = result.id)
@@ -272,5 +411,9 @@ class AssetEditorViewModel @AssistedInject constructor(
     private fun validate(form: AssetForm): Map<AssetField, AssetError> = when (val parsed = form.parse()) {
         is AssetForm.Parsed.Invalid -> parsed.errors
         is AssetForm.Parsed.Ok -> AssetValidator.validate(parsed.draft.normalized(), LocalDate.now(clock))
+    }
+
+    private companion object {
+        const val TAG = "AssetEditor"
     }
 }

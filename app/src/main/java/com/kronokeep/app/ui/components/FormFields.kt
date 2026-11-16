@@ -48,6 +48,7 @@ fun FormTextField(
     singleLine: Boolean = true,
     minLines: Int = 1,
     testTag: String? = null,
+    trailingIcon: (@Composable () -> Unit)? = null,
 ) {
     OutlinedTextField(
         value = value,
@@ -56,6 +57,7 @@ fun FormTextField(
         placeholder = placeholder?.let { { Text(it) } },
         prefix = prefix?.let { { Text(it) } },
         suffix = suffix?.let { { Text(it) } },
+        trailingIcon = trailingIcon,
         isError = error != null,
         supportingText = (error ?: hint)?.let { { Text(it) } },
         singleLine = singleLine,
