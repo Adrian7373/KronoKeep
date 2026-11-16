@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feat/**", "fix/**", "chore/**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Android · lint, unit tests, assembleDebug
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      # gradle/gradle-daemon-jvm.properties pins the daemon to JDK 25; the app itself targets Java 17.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # No local.properties: the app builds in offline mode ("Cloud not configured"), which is what CI wants.
+      - name: Lint, unit tests, debug build
+        run: ./gradlew :app:lintDebug :app:testDebugUnitTest :app:assembleDebug --stacktrace
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-reports
+          path: |
+            app/build/reports/
+            app/build/test-results/
+          if-no-files-found: ignore
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: kronokeep-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+
+  server:
+    name: Edge Functions · engine fixtures and unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      # Node 22.18+ strips TypeScript types natively; the shared code is written to be erasable.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Node tests (same engine-fixtures/*.json as the Kotlin engine)
+        run: node --test "supabase/functions/_shared/*.test.ts"
+
+  database:
+    name: Postgres · migrations and RLS tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      # Postgres + Auth + Storage are enough: the migrations touch auth.users and storage.*.
+      - name: Start local stack and apply migrations
+        run: supabase start -x studio,imgproxy,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta
+      - name: pgTAP (supabase/tests)
+        run: supabase test db
+      - name: Stop
+        if: always()
+        run: supabase stop --no-backup
