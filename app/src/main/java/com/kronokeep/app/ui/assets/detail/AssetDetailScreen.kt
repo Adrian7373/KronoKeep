@@ -23,6 +23,7 @@ import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.automirrored.outlined.NoteAdd
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material.icons.outlined.Unarchive
+import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -87,6 +88,7 @@ fun AssetDetailScreen(
     onAddSchedule: (assetId: String) -> Unit,
     onEditSchedule: (assetId: String, scheduleId: String) -> Unit,
     onLogService: (assetId: String, scheduleId: String?) -> Unit,
+    onOpenReports: (assetId: String) -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val transient by viewModel.transient.collectAsStateWithLifecycle()
@@ -131,6 +133,14 @@ fun AssetDetailScreen(
                                 Icon(Icons.Outlined.MoreVert, contentDescription = "More options")
                             }
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Verified report") },
+                                    leadingIcon = { Icon(Icons.Outlined.VerifiedUser, contentDescription = null) },
+                                    onClick = {
+                                        menuOpen = false
+                                        onOpenReports(loaded.asset.id)
+                                    },
+                                )
                                 DropdownMenuItem(
                                     text = { Text(if (loaded.asset.isArchived) "Unarchive" else "Archive") },
                                     leadingIcon = {

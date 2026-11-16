@@ -174,4 +174,16 @@ interface OutboxDao {
 
     @Query("SELECT COUNT(*) FROM outbox WHERE attempts >= :maxAttempts")
     fun observeRejectedCount(maxAttempts: Int): Flow<Int>
+
+    /** Unpushed changes to an asset or the rows a report is built from (documents aren't part of a report). */
+    @Query(
+        """
+        SELECT COUNT(*) FROM outbox WHERE
+            (tableName = 'assets' AND rowId = :assetId)
+            OR (tableName = 'maintenance_schedules' AND rowId IN (SELECT id FROM maintenance_schedules WHERE assetId = :assetId))
+            OR (tableName = 'service_logs' AND rowId IN (SELECT id FROM service_logs WHERE assetId = :assetId))
+            OR (tableName = 'odometer_readings' AND rowId IN (SELECT id FROM odometer_readings WHERE assetId = :assetId))
+        """,
+    )
+    suspend fun countForAsset(assetId: String): Int
 }

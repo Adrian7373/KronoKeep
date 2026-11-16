@@ -19,3 +19,7 @@ import kotlinx.serialization.Serializable
 
 /** Log a service visit, optionally with one task pre-ticked. */
 @Serializable data class LogServiceRoute(val assetId: String, val scheduleId: String? = null) : NavKey
+
+/** Generate, share and revoke verified reports for one asset. */
+@Serializable data class ReportsRoute(val assetId: String) : NavKey
+@Serializable data class ReportViewerRoute(val assetId: String, val reportId: String) : NavKey
