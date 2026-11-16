@@ -68,14 +68,17 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      # Pinned: "latest" resolves through the unauthenticated GitHub API and fails when it's rate-limited.
+      # Bump deliberately (and re-run the RLS tests) rather than picking up whatever shipped today.
       - uses: supabase/setup-cli@v1
+        id: cli
         with:
-          version: latest
+          version: 3.1.0
       # Postgres + Auth + Storage are enough: the migrations touch auth.users and storage.*.
       - name: Start local stack and apply migrations
         run: supabase start -x studio,imgproxy,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta
       - name: pgTAP (supabase/tests)
         run: supabase test db
       - name: Stop
-        if: always()
+        if: always() && steps.cli.outcome == 'success'
         run: supabase stop --no-backup
