@@ -7,10 +7,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.kronokeep.app.domain.engine.DuePrediction
 import com.kronokeep.app.domain.engine.RateSource
 import com.kronokeep.app.domain.engine.UsageRate
+import com.kronokeep.app.domain.maintenance.DueWindow
 import com.kronokeep.app.domain.maintenance.MaintenanceError
 import com.kronokeep.app.domain.model.MaintenanceStatus
 import com.kronokeep.app.ui.components.Formats
@@ -18,6 +20,7 @@ import com.kronokeep.app.ui.theme.KronoTheme
 import java.text.NumberFormat
 import java.time.Duration
 import java.time.Instant
+import java.time.ZoneId
 import kotlin.math.roundToInt
 
 object MaintenanceFormats {
@@ -78,6 +81,42 @@ object MaintenanceFormats {
         }
     }
 
+    /**
+     * Short label for an asset tag's pill: "Oil change overdue", "PMS in 9–13 d", "Cleaning in 12 d",
+     * "Oil change today", "Oil change at 8,000 km". Null when the task can't be predicted at all.
+     */
+    fun tagLabel(task: String, p: DuePrediction, now: Instant): String? {
+        if (p.status == MaintenanceStatus.OVERDUE) return "$task overdue"
+        val at = p.nextDueAt ?: return p.nextDueKm?.let { "$task at ${Formats.km(it)}" }
+        val days = Duration.between(now, at).toDays().toInt().coerceAtLeast(0)
+        val u = p.uncertaintyDays ?: 0
+        return when {
+            u > 0 -> {
+                val lo = (days - u).coerceAtLeast(0)
+                if (lo == 0 && days + u == 0) "$task today" else "$task in $lo–${days + u} d"
+            }
+            days == 0 -> "$task today"
+            else -> "$task in $days d"
+        }
+    }
+
+    /** "Most likely 30 Nov. Window 23 Nov to 2 Dec." or, for an exact calendar date, "Due 30 Nov 2026." */
+    fun window(w: DueWindow, zone: ZoneId = ZoneId.systemDefault()): String =
+        if (w.isPoint) {
+            "Due ${Formats.date(w.mostLikely, zone)}."
+        } else {
+            "Most likely ${Formats.shortDate(w.mostLikely, zone)}. " +
+                "Window ${Formats.shortDate(w.windowStart, zone)} to ${Formats.shortDate(w.windowEnd, zone)}."
+        }
+
+    /** Three axis labels (start, middle, end of the track): months for long tracks, days for short ones. */
+    fun axisLabels(w: DueWindow, zone: ZoneId = ZoneId.systemDefault()): List<String> {
+        val span = Duration.between(w.start, w.end)
+        val mid = w.start + span.dividedBy(2)
+        val long = span.toDays() > 75
+        return listOf(w.start, mid, w.end).map { if (long) Formats.month(it, zone) else Formats.shortDate(it, zone) }
+    }
+
     fun confidenceWord(c: Double): String = when {
         c >= 0.75 -> "high"
         c >= 0.45 -> "medium"
@@ -108,9 +147,9 @@ fun MaintenanceError.message(): String = when (this) {
     MaintenanceError.InvalidNumber -> "Enter a number"
 }
 
-/** Coloured status pill (OK / Due soon / Overdue). */
+/** Coloured status pill (OK / Due soon / Overdue), optionally with a custom label in the status colours. */
 @Composable
-fun StatusPill(status: MaintenanceStatus, modifier: Modifier = Modifier) {
+fun StatusPill(status: MaintenanceStatus, modifier: Modifier = Modifier, label: String = MaintenanceFormats.statusLabel(status)) {
     val s = KronoTheme.status
     val (container, content) = when (status) {
         MaintenanceStatus.OK -> s.okContainer to s.onOkContainer
@@ -119,8 +158,10 @@ fun StatusPill(status: MaintenanceStatus, modifier: Modifier = Modifier) {
     }
     Surface(color = container, contentColor = content, shape = RoundedCornerShape(50), modifier = modifier) {
         Text(
-            MaintenanceFormats.statusLabel(status),
+            label,
             style = MaterialTheme.typography.labelMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
         )
     }

@@ -18,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,12 +29,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -43,7 +50,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kronokeep.app.domain.asset.AssetField
 import com.kronokeep.app.domain.model.AssetCategory
+import com.kronokeep.app.domain.model.DocumentKind
+import com.kronokeep.app.ui.assets.detail.DocumentPickers
+import com.kronokeep.app.ui.assets.detail.rememberDocumentPickers
 import com.kronokeep.app.ui.assets.icon
+import com.kronokeep.app.ui.capture.SerialScannerScreen
 import com.kronokeep.app.ui.assets.label
 import com.kronokeep.app.ui.components.DateField
 import com.kronokeep.app.ui.components.EmptyState
@@ -57,6 +68,7 @@ object AssetEditorTags {
     const val ODOMETER = "asset_odometer"
     const val WEEKLY_KM = "asset_weekly_km"
     const val NEXT = "wizard_next"
+    const val SCAN_SERIAL = "scan_serial"
     fun category(category: AssetCategory) = "category_${category.name}"
 }
 
@@ -68,6 +80,15 @@ fun AssetEditorScreen(
     onClose: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var scanningSerial by rememberSaveable { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
+    val receiptPickers = rememberDocumentPickers(
+        kind = { DocumentKind.RECEIPT },
+        newCaptureUri = viewModel::newCaptureUri,
+        onCaptureCancelled = viewModel::onCaptureCancelled,
+        onPicked = { uri, _, _, isCapture -> viewModel.onReceiptPicked(uri, isCapture) },
+        onError = { viewModel.showMessage(it) },
+    )
 
     LaunchedEffect(state.savedAssetId) {
         state.savedAssetId?.let {
@@ -75,9 +96,38 @@ fun AssetEditorScreen(
             onSaved(it)
         }
     }
+    LaunchedEffect(state.message) {
+        state.message?.let {
+            viewModel.onMessageShown()
+            snackbar.showSnackbar(it)
+        }
+    }
     BackHandler { if (!viewModel.back()) onClose() }
 
+    if (scanningSerial) {
+        SerialScannerScreen(
+            vehicle = state.isVehicle,
+            onPicked = { serial ->
+                viewModel.edit(AssetField.SERIAL) { it.copy(serialNo = serial) }
+                scanningSerial = false
+            },
+            onClose = { scanningSerial = false },
+        )
+        return
+    }
+
+    state.receipt?.takeIf { it.reviewOpen }?.let { receipt ->
+        ReceiptReviewSheet(
+            receipt = receipt,
+            form = state.form,
+            onToggle = viewModel::toggleReceiptField,
+            onApply = viewModel::applyReceipt,
+            onDismiss = viewModel::dismissReceiptReview,
+        )
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             Column {
                 TopAppBar(
@@ -160,14 +210,15 @@ fun AssetEditorScreen(
                 }
                 when {
                     state.isEdit -> {
-                        DetailsSection(state, viewModel)
+                        DetailsSection(state, viewModel, receiptPickers) { scanningSerial = true }
                         if (state.isVehicle) {
                             Spacer(Modifier.padding(top = 8.dp))
                             BaselinesSection(state, viewModel)
                         }
                     }
                     state.step == WizardStep.CATEGORY -> CategoryStep(state.form.category, viewModel::selectCategory)
-                    state.step == WizardStep.DETAILS -> DetailsSection(state, viewModel)
+                    state.step == WizardStep.DETAILS ->
+                        DetailsSection(state, viewModel, receiptPickers) { scanningSerial = true }
                     state.step == WizardStep.BASELINES -> BaselinesSection(state, viewModel)
                     state.step == WizardStep.SCHEDULES -> SuggestedSchedulesStep(state, viewModel)
                 }
@@ -213,10 +264,22 @@ private fun CategoryStep(selected: AssetCategory?, onSelect: (AssetCategory) -> 
 }
 
 @Composable
-private fun DetailsSection(state: AssetEditorUiState, vm: AssetEditorViewModel) {
+private fun DetailsSection(
+    state: AssetEditorUiState,
+    vm: AssetEditorViewModel,
+    receiptPickers: DocumentPickers,
+    onScanSerial: () -> Unit,
+) {
     val form = state.form
     val errors = state.errors
     val today = LocalDate.now()
+    ReceiptScanCard(
+        receipt = state.receipt,
+        pickers = receiptPickers,
+        onReview = vm::reviewReceipt,
+        onAttachChange = vm::setAttachReceipt,
+        onRemove = vm::removeReceipt,
+    )
     SectionTitle("Details")
     FormTextField(
         value = form.name,
@@ -251,6 +314,11 @@ private fun DetailsSection(state: AssetEditorUiState, vm: AssetEditorViewModel) 
         label = if (form.category == AssetCategory.VEHICLE) "Plate / chassis number" else "Serial number",
         error = errors[AssetField.SERIAL]?.message(),
         capitalization = KeyboardCapitalization.Characters,
+        trailingIcon = {
+            IconButton(onClick = onScanSerial, modifier = Modifier.testTag(AssetEditorTags.SCAN_SERIAL)) {
+                Icon(Icons.Outlined.QrCodeScanner, contentDescription = "Scan with camera")
+            }
+        },
     )
 
     SectionTitle("Purchase & warranty")

@@ -21,6 +21,14 @@ object Formats {
 
     fun date(instant: Instant, zone: ZoneId = ZoneId.systemDefault()): String = DATE.format(instant.atZone(zone))
 
+    private val SHORT_DATE = DateTimeFormatter.ofPattern("d MMM", LOCALE)
+    private val MONTH = DateTimeFormatter.ofPattern("MMM", LOCALE)
+
+    /** "30 Nov": for windows and axes, where the year is obvious. */
+    fun shortDate(instant: Instant, zone: ZoneId = ZoneId.systemDefault()): String = SHORT_DATE.format(instant.atZone(zone))
+
+    fun month(instant: Instant, zone: ZoneId = ZoneId.systemDefault()): String = MONTH.format(instant.atZone(zone))
+
     fun km(km: Int): String = "${NUMBER.format(km)} km"
 
     fun bytes(size: Long): String = when {

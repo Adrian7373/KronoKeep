@@ -7,7 +7,11 @@
     <!-- Daily maintenance reminders. Requested in context, right after the first schedule is created. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Capturing receipts goes through the system camera app; no CAMERA permission needed. -->
+    <!--
+        Receipt and document photos go through the system camera app. CAMERA is only for the live
+        serial/barcode scanner, requested when the user opens it. The app works without a camera.
+    -->
+    <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <queries>

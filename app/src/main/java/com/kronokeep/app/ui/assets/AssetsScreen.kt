@@ -1,7 +1,6 @@
 package com.kronokeep.app.ui.assets
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,7 +18,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -32,11 +30,14 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.kronokeep.app.domain.common.Dates
+import com.kronokeep.app.domain.dashboard.AssetTag
+import com.kronokeep.app.domain.dashboard.AssetTags
+import com.kronokeep.app.domain.maintenance.ObserveAllMaintenanceUseCase
 import com.kronokeep.app.domain.model.Asset
 import com.kronokeep.app.domain.model.AssetCategory
 import com.kronokeep.app.domain.repository.AssetRepository
 import com.kronokeep.app.ui.components.EmptyState
-import com.kronokeep.app.ui.components.SyncBadge
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,22 +46,37 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneId
 import javax.inject.Inject
 
 sealed interface AssetsUiState {
     data object Loading : AssetsUiState
-    data class Loaded(val assets: List<Asset>, val showingArchived: Boolean) : AssetsUiState
+    data class Loaded(val tags: List<AssetTag>, val showingArchived: Boolean, val now: Instant) : AssetsUiState
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
-class AssetsViewModel @Inject constructor(repository: AssetRepository) : ViewModel() {
+class AssetsViewModel @Inject constructor(
+    repository: AssetRepository,
+    observeAll: ObserveAllMaintenanceUseCase,
+    clock: Clock,
+    zone: ZoneId,
+) : ViewModel() {
     private val showArchived = MutableStateFlow(false)
 
+    // Active tags carry live predictions (same source as the dashboard); archived assets get no reminders.
     val state: StateFlow<AssetsUiState> = showArchived
         .flatMapLatest { archived ->
-            val source = if (archived) repository.observeArchived() else repository.observeActive()
-            source.map<List<Asset>, AssetsUiState> { AssetsUiState.Loaded(it, archived) }
+            if (archived) {
+                repository.observeArchived().map { AssetsUiState.Loaded(AssetTags.plain(it), true, clock.instant()) }
+            } else {
+                observeAll().map { data ->
+                    val now = clock.instant()
+                    AssetsUiState.Loaded(AssetTags.from(data, Dates.localDate(now, zone)), false, now)
+                }
+            }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AssetsUiState.Loading)
 
@@ -94,7 +110,7 @@ fun AssetsScreen(
         },
         floatingActionButton = {
             // The empty state has its own call to action; don't show two.
-            if (!archived && (state as? AssetsUiState.Loaded)?.assets?.isNotEmpty() == true) {
+            if (!archived && (state as? AssetsUiState.Loaded)?.tags?.isNotEmpty() == true) {
                 ExtendedFloatingActionButton(
                     onClick = onAddAsset,
                     icon = { Icon(Icons.Outlined.Add, contentDescription = null) },
@@ -106,32 +122,26 @@ fun AssetsScreen(
         when (val s = state) {
             AssetsUiState.Loading -> Unit
             is AssetsUiState.Loaded -> when {
-                s.assets.isEmpty() && s.showingArchived -> EmptyState(
+                s.tags.isEmpty() && s.showingArchived -> EmptyState(
                     icon = Icons.Outlined.Archive,
                     title = "Nothing archived",
                     body = "Sold or retired something? Archive it to keep its history without the clutter.",
                     modifier = Modifier.padding(padding),
                 )
-                s.assets.isEmpty() -> EmptyState(
+                s.tags.isEmpty() -> EmptyState(
                     icon = Icons.Outlined.Inventory2,
                     title = "Your vault is empty",
                     body = "Log your motorcycle, aircon or laptop once. Keep the receipt, never miss a service.",
                     modifier = Modifier.padding(padding),
                     action = { Button(onClick = onAddAsset) { Text("Add your first asset") } },
                 )
-                else -> LazyColumn(contentPadding = PaddingValues(bottom = 96.dp), modifier = Modifier.padding(padding)) {
-                    items(s.assets, key = { it.id }) { asset ->
-                        ListItem(
-                            headlineContent = { Text(asset.name) },
-                            supportingContent = {
-                                Column {
-                                    Text(asset.subtitle)
-                                    SyncBadge(asset.syncState, Modifier.padding(top = 2.dp))
-                                }
-                            },
-                            leadingContent = { Icon(asset.category.icon, contentDescription = asset.category.label) },
-                            modifier = Modifier.clickable { onOpenAsset(asset.id) },
-                        )
+                else -> LazyColumn(
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.padding(padding),
+                ) {
+                    items(s.tags, key = { it.asset.id }) { tag ->
+                        AssetTagCard(tag, s.now, onClick = { onOpenAsset(tag.asset.id) })
                     }
                 }
             }
