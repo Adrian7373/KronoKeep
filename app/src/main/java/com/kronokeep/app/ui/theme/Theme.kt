@@ -129,6 +129,35 @@ private val DarkStatus = StatusColors(
 
 private val LocalStatusColors = staticCompositionLocalOf { LightStatus }
 
+/**
+ * Asset-tag metal: brushed aluminium in light, anodised gunmetal in dark (design/previews/c-asset-tag.html).
+ * [face] are the gradient stops at 0 / 38 / 55 / 100 %, drawn at roughly 115 degrees.
+ */
+@Immutable
+data class MetalColors(
+    val face: List<Color>,
+    val edge: Color,
+    val rivetHighlight: Color,
+    val rivetMid: Color,
+    val rivetShadow: Color,
+    val serial: Color,
+)
+
+private val LightMetal = MetalColors(
+    face = listOf(Color(0xFFF7F9F9), Color(0xFFE4EAEA), Color(0xFFF4F7F7), Color(0xFFDCE3E3)),
+    edge = Color(0x1F152022),
+    rivetHighlight = Color(0xFFFFFFFF), rivetMid = Color(0xFF9AA6A6), rivetShadow = Color(0xFF6E7B7B),
+    serial = Color(0xFF4A5A5C),
+)
+private val DarkMetal = MetalColors(
+    face = listOf(Color(0xFF2D3D40), Color(0xFF1F2C2F), Color(0xFF2B3A3D), Color(0xFF1B2729)),
+    edge = Color(0x12FFFFFF),
+    rivetHighlight = Color(0xFF9FB0B1), rivetMid = Color(0xFF4C5C5E), rivetShadow = Color(0xFF273335),
+    serial = Color(0xFFA9BBBC),
+)
+
+private val LocalMetalColors = staticCompositionLocalOf { LightMetal }
+
 private val KronoShapes = Shapes(
     extraSmall = RoundedCornerShape(6.dp),
     small = RoundedCornerShape(10.dp),
@@ -140,6 +169,9 @@ private val KronoShapes = Shapes(
 object KronoTheme {
     val status: StatusColors
         @Composable get() = LocalStatusColors.current
+
+    val metal: MetalColors
+        @Composable get() = LocalMetalColors.current
 }
 
 @Composable
@@ -149,6 +181,7 @@ fun KronoKeepTheme(
 ) {
     CompositionLocalProvider(
         LocalStatusColors provides if (darkTheme) DarkStatus else LightStatus,
+        LocalMetalColors provides if (darkTheme) DarkMetal else LightMetal,
     ) {
         MaterialTheme(
             colorScheme = if (darkTheme) DarkColors else LightColors,

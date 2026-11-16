@@ -65,6 +65,8 @@ import com.kronokeep.app.domain.presets.Preset
 import com.kronokeep.app.domain.presets.PresetTask
 import com.kronokeep.app.ui.components.Formats
 import com.kronokeep.app.ui.components.FormTextField
+import com.kronokeep.app.domain.maintenance.DueWindow
+import com.kronokeep.app.ui.maintenance.DueWindowTimeline
 import com.kronokeep.app.ui.maintenance.MaintenanceFormats
 import com.kronokeep.app.ui.maintenance.StatusPill
 import com.kronokeep.app.ui.theme.KronoTheme
@@ -216,8 +218,22 @@ private fun ScheduleCard(
                     StatusPill(p.status)
                 }
                 Text(MaintenanceFormats.due(p, now), style = MaterialTheme.typography.bodyLarge)
+                val window = remember(p, now) { DueWindow.of(p, now) }
+                if (window != null) {
+                    DueWindowTimeline(window, p.status, Modifier.padding(top = 4.dp, end = 12.dp))
+                    Text(
+                        listOfNotNull(
+                            MaintenanceFormats.window(window),
+                            p.nextDueKm?.let {
+                                if (s.intervalDays != null) "Or at ${Formats.km(it)}, whichever comes first." else "At ${Formats.km(it)}."
+                            },
+                        ).joinToString(" "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 val detail = MaintenanceFormats.dueDetail(p)
-                if (detail.isNotEmpty()) {
+                if (window == null && detail.isNotEmpty()) {
                     Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Text(
