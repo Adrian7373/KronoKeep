@@ -49,6 +49,8 @@ import com.kronokeep.app.data.remote.SupabaseReportRemote
 import com.kronokeep.app.data.repository.ReportRepositoryImpl
 import com.kronokeep.app.domain.repository.ReportRepository
 import com.kronokeep.app.domain.common.IdGenerator
+import com.kronokeep.app.data.capture.MlKitReceiptTextReader
+import com.kronokeep.app.domain.capture.ReceiptTextReader
 import com.kronokeep.app.domain.repository.AuthState
 import com.kronokeep.app.domain.repository.DocumentImporter
 import com.kronokeep.app.domain.repository.DocumentRepository
@@ -148,6 +150,9 @@ abstract class RepositoryModule {
     // Verified reports
     @Binds abstract fun bindReportRemote(impl: SupabaseReportRemote): ReportRemote
     @Binds abstract fun bindReportRepository(impl: ReportRepositoryImpl): ReportRepository
+
+    // Smart capture
+    @Binds abstract fun bindReceiptTextReader(impl: MlKitReceiptTextReader): ReceiptTextReader
 
     // Push reminders
     @Binds abstract fun bindDueNotifier(impl: AndroidReminderNotifier): DueNotifier
