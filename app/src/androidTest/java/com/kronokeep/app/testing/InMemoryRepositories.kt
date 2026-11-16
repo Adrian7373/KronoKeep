@@ -10,7 +10,14 @@ import com.kronokeep.app.domain.model.ServiceLog
 import com.kronokeep.app.domain.model.ServiceVisit
 import com.kronokeep.app.domain.model.SyncState
 import com.kronokeep.app.domain.repository.AssetRepository
+import com.kronokeep.app.domain.model.Document
+import com.kronokeep.app.domain.model.DocumentKind
+import com.kronokeep.app.domain.model.DocumentSource
+import com.kronokeep.app.domain.model.PreparedFile
 import com.kronokeep.app.domain.repository.DeleteLogResult
+import com.kronokeep.app.domain.repository.DocumentImporter
+import com.kronokeep.app.domain.repository.DocumentRepository
+import com.kronokeep.app.domain.repository.ImportResult
 import com.kronokeep.app.domain.repository.MaintenanceRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -86,4 +93,29 @@ class InMemoryMaintenanceRepository : MaintenanceRepository {
     override suspend fun deleteServiceLog(id: String) = DeleteLogResult.NotFound
     override suspend fun recordOdometer(assetId: String, km: Int) = false
     override suspend fun recomputeAll() = 0
+}
+
+/** Records which documents were added; no files are touched. */
+class InMemoryDocumentRepository : DocumentRepository {
+    data class Added(val assetId: String, val kind: DocumentKind, val file: PreparedFile)
+    val added = mutableListOf<Added>()
+
+    override fun observeForAsset(assetId: String): Flow<List<Document>> = MutableStateFlow(emptyList())
+    override suspend fun get(id: String): Document? = null
+    override suspend fun add(documentId: String, assetId: String, kind: DocumentKind, file: PreparedFile): String {
+        added += Added(assetId, kind, file)
+        return documentId
+    }
+    override suspend fun delete(id: String) = false
+    override suspend fun source(id: String): Result<DocumentSource> = Result.failure(UnsupportedOperationException())
+}
+
+/** Pretends every source imports as a small JPEG, remembering the URIs it was given. */
+class FakeDocumentImporter : DocumentImporter {
+    val imported = mutableListOf<String>()
+    override suspend fun import(sourceUri: String, documentId: String, declaredMimeType: String?): ImportResult {
+        imported += sourceUri
+        return ImportResult.Success(PreparedFile("/fake/$documentId.jpg", "image/jpeg", 1_000, "a".repeat(64)))
+    }
+    override suspend fun discard(localPath: String) = Unit
 }
