@@ -37,6 +37,13 @@ class MaintenanceFormatsTest {
         assertEquals("Due 30 Nov 2026.", MaintenanceFormats.window(exact, manila))
     }
 
+    @Test fun `ago reads today, yesterday or days`() {
+        assertEquals("Today", MaintenanceFormats.ago(now.minus(Duration.ofHours(5)), now))
+        assertEquals("Today", MaintenanceFormats.ago(now.plus(day), now))
+        assertEquals("Yesterday", MaintenanceFormats.ago(now - day, now))
+        assertEquals("12 d ago", MaintenanceFormats.ago(now - day.multipliedBy(12), now))
+    }
+
     @Test fun `axis labels use months on long tracks and days on short ones`() {
         val long = MaintenanceFormats.axisLabels(DueWindow.of(p(120, 10), now)!!, manila)
         assertEquals(3, long.size)

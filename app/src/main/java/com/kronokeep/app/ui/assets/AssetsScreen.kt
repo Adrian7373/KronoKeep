@@ -18,9 +18,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -38,6 +38,9 @@ import com.kronokeep.app.domain.model.Asset
 import com.kronokeep.app.domain.model.AssetCategory
 import com.kronokeep.app.domain.repository.AssetRepository
 import com.kronokeep.app.ui.components.EmptyState
+import com.kronokeep.app.ui.components.KronoTopBar
+import com.kronokeep.app.ui.maintenance.MaintenanceFormats
+import com.kronokeep.app.ui.settings.ThemeToggleButton
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -96,8 +99,13 @@ fun AssetsScreen(
     val archived = (state as? AssetsUiState.Loaded)?.showingArchived == true
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(if (archived) "Archived" else "Assets") },
+            val loaded = state as? AssetsUiState.Loaded
+            KronoTopBar(
+                title = if (archived) "Archived" else "Assets",
+                subtitle = loaded?.let { s ->
+                    val count = MaintenanceFormats.plural(s.tags.size, "asset")
+                    if (archived) "$count, kept for their history" else "$count in your vault"
+                },
                 actions = {
                     IconButton(onClick = viewModel::toggleArchived) {
                         Icon(
@@ -105,6 +113,7 @@ fun AssetsScreen(
                             contentDescription = if (archived) "Show active assets" else "Show archived assets",
                         )
                     }
+                    ThemeToggleButton()
                 },
             )
         },
@@ -113,6 +122,8 @@ fun AssetsScreen(
             if (!archived && (state as? AssetsUiState.Loaded)?.tags?.isNotEmpty() == true) {
                 ExtendedFloatingActionButton(
                     onClick = onAddAsset,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                     icon = { Icon(Icons.Outlined.Add, contentDescription = null) },
                     text = { Text("Add asset") },
                 )
@@ -136,7 +147,7 @@ fun AssetsScreen(
                     action = { Button(onClick = onAddAsset) { Text("Add your first asset") } },
                 )
                 else -> LazyColumn(
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.padding(padding),
                 ) {

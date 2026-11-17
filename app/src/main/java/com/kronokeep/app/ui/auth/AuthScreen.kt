@@ -33,6 +33,47 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import com.kronokeep.app.ui.components.brushedMetal
+import com.kronokeep.app.ui.components.drawRivet
+import com.kronokeep.app.ui.theme.KronoTheme
+
+/** The app mark: a small riveted asset tag with a lock stamped in teal. */
+@Composable
+private fun BrandTag() {
+    val metal = KronoTheme.metal
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = Color.Transparent,
+        border = BorderStroke(1.dp, metal.edge),
+        shadowElevation = 2.dp,
+    ) {
+        Box(
+            Modifier
+                .size(88.dp)
+                .background(brushedMetal(metal.face))
+                .drawBehind {
+                    val r = 4.dp.toPx()
+                    val inset = 12.dp.toPx()
+                    listOf(
+                        Offset(inset, inset),
+                        Offset(size.width - inset, inset),
+                        Offset(inset, size.height - inset),
+                        Offset(size.width - inset, size.height - inset),
+                    ).forEach { drawRivet(metal, it, r) }
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Outlined.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp))
+        }
+    }
+}
 
 @Composable
 fun AuthScreen(viewModel: AuthViewModel = hiltViewModel()) {
@@ -48,8 +89,8 @@ fun AuthScreen(viewModel: AuthViewModel = hiltViewModel()) {
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(Icons.Outlined.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(48.dp))
-        Text("KronoKeep", style = MaterialTheme.typography.headlineMedium)
+        BrandTag()
+        Text("KronoKeep", style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary)
         Text(
             "Warranties, receipts and maintenance, all in one vault.",
             style = MaterialTheme.typography.bodyMedium,
@@ -82,7 +123,7 @@ fun AuthScreen(viewModel: AuthViewModel = hiltViewModel()) {
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
         state.info?.let { Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium) }
 
-        Button(onClick = viewModel::submit, enabled = state.canSubmit, modifier = Modifier.fillMaxWidth()) {
+        Button(onClick = viewModel::submit, enabled = state.canSubmit, modifier = Modifier.fillMaxWidth().height(52.dp)) {
             if (state.isBusy) {
                 CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
             } else {

@@ -1,6 +1,8 @@
 package com.kronokeep.app.ui.assets.detail
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,8 +27,6 @@ import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material.icons.outlined.Unarchive
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -35,14 +35,12 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,7 +52,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kronokeep.app.domain.model.Asset
@@ -66,6 +63,11 @@ import com.kronokeep.app.ui.assets.subtitle
 import com.kronokeep.app.ui.components.EmptyState
 import com.kronokeep.app.ui.components.Formats
 import com.kronokeep.app.ui.components.SyncBadge
+import com.kronokeep.app.ui.components.IconBadge
+import com.kronokeep.app.ui.components.KronoTopBar
+import com.kronokeep.app.ui.components.PillTabs
+import com.kronokeep.app.ui.components.brushedMetal
+import com.kronokeep.app.ui.components.leftRivets
 import com.kronokeep.app.ui.theme.KronoTheme
 import com.kronokeep.app.ui.theme.SerialTextStyle
 import androidx.compose.ui.text.TextStyle
@@ -118,8 +120,12 @@ fun AssetDetailScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            TopAppBar(
-                title = { Text(loaded?.asset?.name.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            KronoTopBar(
+                title = loaded?.asset?.name.orEmpty(),
+                subtitle = loaded?.let { l ->
+                    val km = l.maintenance.currentKm.takeIf { l.asset.category == AssetCategory.VEHICLE }
+                    listOfNotNull(km?.let(Formats::km), l.asset.subtitle).joinToString(" · ")
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back") }
                 },
@@ -172,6 +178,8 @@ fun AssetDetailScreen(
             if (loaded != null && tab == DetailTab.DOCUMENTS.ordinal) {
                 ExtendedFloatingActionButton(
                     onClick = { sheetOpen = true },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                     icon = { Icon(Icons.AutoMirrored.Outlined.NoteAdd, contentDescription = null) },
                     text = { Text("Add document") },
                     expanded = !loaded.isImporting,
@@ -179,6 +187,8 @@ fun AssetDetailScreen(
             } else if (loaded != null) {
                 ExtendedFloatingActionButton(
                     onClick = { onLogService(loaded.asset.id, null) },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                     icon = { Icon(Icons.Outlined.TaskAlt, contentDescription = null) },
                     text = { Text("Log service") },
                     modifier = Modifier.testTag(AssetDetailTags.LOG_SERVICE),
@@ -202,10 +212,17 @@ fun AssetDetailScreen(
             ) {
                 item(key = "overview") { OverviewCard(s.asset) }
                 stickyHeader(key = "tabs") {
-                    PrimaryTabRow(selectedTabIndex = tab) {
-                        DetailTab.entries.forEach { t ->
-                            Tab(selected = tab == t.ordinal, onClick = { tab = t.ordinal }, text = { Text(t.title) })
-                        }
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.background)
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                    ) {
+                        PillTabs(
+                            titles = DetailTab.entries.map { it.title },
+                            selectedIndex = tab,
+                            onSelect = { tab = it },
+                        )
                     }
                 }
                 when (DetailTab.entries[tab]) {
@@ -318,21 +335,26 @@ fun AssetDetailScreen(
     }
 }
 
+/** The asset's own tag: the same riveted metal plate as the list, opened up to show every fact on record. */
 @Composable
 private fun OverviewCard(asset: Asset) {
     val today = LocalDate.now()
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+    val metal = KronoTheme.metal
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = Color.Transparent,
+        border = BorderStroke(1.dp, metal.edge),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(
+            Modifier
+                .background(brushedMetal(metal.face))
+                .leftRivets(metal)
+                .padding(start = 40.dp, top = 16.dp, end = 16.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    asset.category.icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(36.dp),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
+                IconBadge(asset.category.icon, size = 40.dp)
                 Column(Modifier.padding(start = 12.dp).weight(1f)) {
                     // asset.subtitle falls back to the category, so only repeat the category under a real make/model.
                     val hasMakeModel = asset.brand != null || asset.model != null
@@ -341,7 +363,9 @@ private fun OverviewCard(asset: Asset) {
                         asset.category.label.takeIf { hasMakeModel },
                         "Archived".takeIf { asset.isArchived },
                     ).joinToString(" · ")
-                    if (caption.isNotEmpty()) Text(caption, style = MaterialTheme.typography.bodySmall)
+                    if (caption.isNotEmpty()) {
+                        Text(caption, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
                 SyncBadge(asset.syncState)
             }
@@ -350,6 +374,7 @@ private fun OverviewCard(asset: Asset) {
                     if (asset.category == AssetCategory.VEHICLE) "Plate / chassis" else "Serial no.",
                     it,
                     valueStyle = SerialTextStyle,
+                    valueColor = metal.serial,
                 )
             }
             if (asset.purchaseDate != null || asset.price != null) {
@@ -387,7 +412,7 @@ private fun Fact(
         Text(
             label,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(0.4f),
         )
         Text(value, style = valueStyle, color = valueColor, modifier = Modifier.weight(0.6f))

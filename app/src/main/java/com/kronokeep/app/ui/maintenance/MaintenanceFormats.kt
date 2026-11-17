@@ -117,6 +117,13 @@ object MaintenanceFormats {
         return listOf(w.start, mid, w.end).map { if (long) Formats.month(it, zone) else Formats.shortDate(it, zone) }
     }
 
+    /** "Today", "Yesterday", "12 d ago". Future instants (clock skew) read as today. */
+    fun ago(at: Instant, now: Instant): String = when (val d = Duration.between(at, now).toDays()) {
+        in Long.MIN_VALUE..0L -> "Today"
+        1L -> "Yesterday"
+        else -> "$d d ago"
+    }
+
     fun confidenceWord(c: Double): String = when {
         c >= 0.75 -> "high"
         c >= 0.45 -> "medium"

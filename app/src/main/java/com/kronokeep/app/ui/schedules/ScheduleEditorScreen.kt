@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -27,7 +29,6 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,6 +44,8 @@ import com.kronokeep.app.ui.components.DateField
 import com.kronokeep.app.ui.components.EmptyState
 import com.kronokeep.app.ui.components.Formats
 import com.kronokeep.app.ui.components.FormTextField
+import com.kronokeep.app.ui.components.KronoDefaults
+import com.kronokeep.app.ui.components.KronoTopBar
 import com.kronokeep.app.ui.maintenance.message
 import java.time.LocalDate
 
@@ -54,19 +57,20 @@ fun ScheduleEditorScreen(viewModel: ScheduleEditorViewModel, onClose: () -> Unit
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(if (state.isEdit) "Edit schedule" else "New schedule") },
+            KronoTopBar(
+                title = if (state.isEdit) "Edit schedule" else "New schedule",
+                subtitle = state.assetName.ifEmpty { null },
                 navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, contentDescription = "Close") } },
             )
         },
         bottomBar = {
             if (!state.isLoading && !state.notFound) {
-                Surface(tonalElevation = 2.dp) {
+                Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
                     Row(
                         Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(16.dp),
                         horizontalArrangement = Arrangement.End,
                     ) {
-                        Button(onClick = viewModel::save, enabled = !state.isSaving) {
+                        Button(onClick = viewModel::save, enabled = !state.isSaving, modifier = Modifier.height(48.dp).widthIn(min = 120.dp)) {
                             if (state.isSaving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text("Save")
                         }
                     }
@@ -90,7 +94,6 @@ private fun ScheduleForm(state: ScheduleEditorUiState, vm: ScheduleEditorViewMod
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(state.assetName, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         FormTextField(
             value = f.task,
             onValueChange = { v -> vm.edit(ScheduleField.TASK) { it.copy(task = v) } },
@@ -116,6 +119,7 @@ private fun ScheduleForm(state: ScheduleEditorUiState, vm: ScheduleEditorViewMod
                         selected = f.unit == unit,
                         onClick = { vm.edit(null) { it.copy(unit = unit) } },
                         shape = SegmentedButtonDefaults.itemShape(i, IntervalUnit.entries.size),
+                        colors = KronoDefaults.segmentedButtonColors(),
                         label = { Text(unit.label) },
                     )
                 }

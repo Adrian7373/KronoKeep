@@ -25,21 +25,19 @@ import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -51,7 +49,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -65,6 +67,9 @@ import com.kronokeep.app.domain.presets.Preset
 import com.kronokeep.app.domain.presets.PresetTask
 import com.kronokeep.app.ui.components.Formats
 import com.kronokeep.app.ui.components.FormTextField
+import com.kronokeep.app.ui.components.IconBadge
+import com.kronokeep.app.ui.components.KronoCard
+import com.kronokeep.app.ui.components.KronoDefaults
 import com.kronokeep.app.domain.maintenance.DueWindow
 import com.kronokeep.app.ui.maintenance.DueWindowTimeline
 import com.kronokeep.app.ui.maintenance.MaintenanceFormats
@@ -161,8 +166,9 @@ fun LazyListScope.historyTab(logs: List<ServiceLog>, onDelete: (PendingDelete) -
         }
     }
     items(logs, key = { it.id }) { log ->
-        LogRow(log, onDelete = { onDelete(PendingDelete.Log(log.id)) })
-        HorizontalDivider(Modifier.padding(start = 16.dp))
+        KronoCard(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp), contentPadding = 0.dp) {
+            LogRow(log, onDelete = { onDelete(PendingDelete.Log(log.id)) })
+        }
     }
 }
 
@@ -171,16 +177,22 @@ private fun OdometerCard(m: AssetMaintenance, now: Instant, onUpdate: () -> Unit
     val last = m.lastReading
     val days = last?.let { Duration.between(it.recordedAt, now).toDays() }
     val stale = days == null || days > 7
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (stale) KronoTheme.status.dueSoonContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
-        ),
+    val s = KronoTheme.status
+    KronoCard(
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+        color = if (stale) s.dueSoonContainer else MaterialTheme.colorScheme.surfaceContainer,
     ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.Speed, contentDescription = null)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconBadge(
+                Icons.Outlined.Speed,
+                container = if (stale) s.dueSoon.copy(alpha = 0.18f) else MaterialTheme.colorScheme.primaryContainer,
+                content = if (stale) s.onDueSoonContainer else MaterialTheme.colorScheme.onPrimaryContainer,
+            )
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text(m.currentKm?.let(Formats::km) ?: "No odometer yet", style = SerialTextStyle)
+                Text(
+                    m.currentKm?.let(Formats::km) ?: "No odometer yet",
+                    style = SerialTextStyle.copy(fontSize = MaterialTheme.typography.titleMedium.fontSize),
+                )
                 Text(
                     when (days) {
                         null -> "Add a reading to predict km-based tasks"
@@ -189,10 +201,15 @@ private fun OdometerCard(m: AssetMaintenance, now: Instant, onUpdate: () -> Unit
                         else -> "Updated $days days ago"
                     },
                     style = MaterialTheme.typography.bodySmall,
+                    color = if (stale) s.onDueSoonContainer else MaterialTheme.colorScheme.onSurface,
                 )
                 Text(MaintenanceFormats.rate(m.rate), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            FilledTonalButton(onClick = onUpdate, modifier = Modifier.testTag(MaintenanceTabTags.UPDATE_ODOMETER)) { Text("Update") }
+            FilledTonalButton(
+                onClick = onUpdate,
+                colors = KronoDefaults.tonalButtonColors(),
+                modifier = Modifier.testTag(MaintenanceTabTags.UPDATE_ODOMETER),
+            ) { Text("Update") }
         }
     }
 }
@@ -207,8 +224,10 @@ private fun ScheduleCard(
 ) {
     val (s, p) = item
     var menu by remember { mutableStateOf(false) }
-    OutlinedCard(
+    Surface(
         onClick = onLogService,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = MaterialTheme.shapes.medium,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).testTag(MaintenanceTabTags.schedule(s.id)),
     ) {
         Row(Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.Top) {
@@ -283,14 +302,35 @@ private fun LogRow(log: ServiceLog, onDelete: () -> Unit) {
             ).joinToString(" · ")
             if (line.isNotEmpty()) Text(line)
         },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         trailingContent = {
             if (log.isLocked) {
-                Icon(Icons.Outlined.Lock, contentDescription = "Locked by a verified report", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                LockedPill()
             } else {
                 IconButton(onClick = onDelete) { Icon(Icons.Outlined.DeleteOutline, contentDescription = "Delete entry") }
             }
         },
     )
+}
+
+/** Brass, because a locked entry is part of a verified record. */
+@Composable
+private fun LockedPill() {
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        shape = RoundedCornerShape(50),
+        modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = "Locked by a verified report" },
+    ) {
+        Row(
+            Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Icon(Icons.Outlined.Lock, contentDescription = null, modifier = Modifier.size(14.dp))
+            Text("Locked", style = MaterialTheme.typography.labelMedium)
+        }
+    }
 }
 
 @Composable
@@ -300,7 +340,7 @@ private fun TabMessage(icon: ImageVector, title: String, body: String) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp))
+        IconBadge(icon, size = 64.dp)
         Text(title, style = MaterialTheme.typography.titleMedium)
         Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
     }
