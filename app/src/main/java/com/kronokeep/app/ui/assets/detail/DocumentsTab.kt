@@ -31,6 +31,11 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.ui.graphics.Color
+import com.kronokeep.app.ui.components.IconBadge
+import com.kronokeep.app.ui.components.KronoCard
+import com.kronokeep.app.ui.components.KronoDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -56,14 +61,22 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun DocumentRow(document: Document, onOpen: () -> Unit, onDelete: () -> Unit) {
+    KronoCard(
+        onClick = onOpen,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        contentPadding = 0.dp,
+    ) {
+        DocumentListItem(document, onDelete)
+    }
+}
+
+@Composable
+private fun DocumentListItem(document: Document, onDelete: () -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     ListItem(
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         leadingContent = {
-            Icon(
-                if (document.isImage) Icons.Outlined.Image else Icons.Outlined.PictureAsPdf,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
+            IconBadge(if (document.isImage) Icons.Outlined.Image else Icons.Outlined.PictureAsPdf)
         },
         headlineContent = { Text(document.kind.label) },
         supportingContent = {
@@ -89,7 +102,6 @@ fun DocumentRow(document: Document, onOpen: () -> Unit, onDelete: () -> Unit) {
                 }
             }
         },
-        modifier = Modifier.clickable(onClick = onOpen),
     )
 }
 
@@ -186,23 +198,28 @@ fun AddDocumentSheet(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 DocumentKind.entries.forEach { k ->
-                    FilterChip(selected = k == kind, onClick = { onKindChange(k) }, label = { Text(k.label) })
+                    FilterChip(
+                        selected = k == kind,
+                        onClick = { onKindChange(k) },
+                        label = { Text(k.label) },
+                        colors = KronoDefaults.filterChipColors(),
+                    )
                 }
             }
             ListItem(
                 headlineContent = { Text("Take a photo") },
-                leadingContent = { Icon(Icons.Outlined.PhotoCamera, contentDescription = null) },
+                leadingContent = { IconBadge(Icons.Outlined.PhotoCamera) },
                 modifier = Modifier.clickable { pick(pickers.takePhoto) },
             )
             ListItem(
                 headlineContent = { Text("Choose from photos") },
-                leadingContent = { Icon(Icons.Outlined.PhotoLibrary, contentDescription = null) },
+                leadingContent = { IconBadge(Icons.Outlined.PhotoLibrary) },
                 modifier = Modifier.clickable { pick(pickers.pickPhoto) },
             )
             ListItem(
                 headlineContent = { Text("Choose a file") },
                 supportingContent = { Text("PDF, JPEG, PNG or HEIC, up to 15 MB") },
-                leadingContent = { Icon(Icons.Outlined.FolderOpen, contentDescription = null) },
+                leadingContent = { IconBadge(Icons.Outlined.FolderOpen) },
                 modifier = Modifier.clickable { pick(pickers.pickFile) },
             )
         }

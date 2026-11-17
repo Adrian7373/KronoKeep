@@ -26,6 +26,8 @@ data class DashboardSummary(
     val staleOdometers: List<StaleOdometer>,
     val assetCount: Int,
     val scheduleCount: Int,
+    /** The asset the user works with most (see [FeaturedAssets]); null when there are no assets. */
+    val featured: FeaturedAsset? = null,
 ) {
     val isAllClear: Boolean get() = overdue.isEmpty() && dueSoon.isEmpty()
 
@@ -64,6 +66,7 @@ data class DashboardSummary(
                 staleOdometers = stale,
                 assetCount = data.size,
                 scheduleCount = items.size,
+                featured = FeaturedAssets.pick(data, now),
             )
         }
     }

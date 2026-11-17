@@ -24,8 +24,7 @@ import androidx.compose.material.icons.outlined.Verified
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -38,7 +37,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,6 +52,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kronokeep.app.domain.model.Report
 import com.kronokeep.app.ui.components.EmptyState
 import com.kronokeep.app.ui.components.Formats
+import com.kronokeep.app.ui.components.IconBadge
+import com.kronokeep.app.ui.components.KronoCard
+import com.kronokeep.app.ui.components.KronoDefaults
+import com.kronokeep.app.ui.components.KronoTopBar
 import com.kronokeep.app.ui.theme.KronoTheme
 import com.kronokeep.app.ui.theme.SerialTextStyle
 import java.time.Instant
@@ -97,8 +99,9 @@ fun ReportsScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            TopAppBar(
-                title = { Text("Verified report") },
+            KronoTopBar(
+                title = "Verified report",
+                subtitle = "For the buyer, checkable by QR",
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back") }
                 },
@@ -185,32 +188,32 @@ fun ReportsScreen(
 
 @Composable
 private fun IntroCard(state: ReportsUiState, onGenerate: () -> Unit) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    KronoCard {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.VerifiedUser, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    "Hand over a record buyers can check",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                IconBadge(
+                    Icons.Outlined.VerifiedUser,
+                    container = MaterialTheme.colorScheme.secondaryContainer,
+                    content = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
+                Spacer(Modifier.width(12.dp))
+                Text("Hand over a record buyers can check", style = MaterialTheme.typography.titleMedium)
             }
             Text(
                 "The server builds a PDF from your synced service history, stamps it with a SHA-256 fingerprint and " +
                     "a QR code anyone can scan to confirm it's genuine. Entries in a report are locked from then on.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 ReportFormats.entries(state.localLogCount) + " on this phone",
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
             )
             Button(
                 onClick = onGenerate,
                 enabled = !state.generating && state.localLogCount > 0,
-                modifier = Modifier.testTag(ReportsTags.GENERATE),
+                colors = KronoDefaults.recordButtonColors(),
+                modifier = Modifier.fillMaxWidth().testTag(ReportsTags.GENERATE),
             ) {
                 if (state.generating) {
                     CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -233,8 +236,8 @@ private fun ReportCard(
     onShare: () -> Unit,
     onRevoke: () -> Unit,
 ) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    KronoCard {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(Formats.date(report.generatedAt), style = MaterialTheme.typography.titleMedium)
@@ -246,7 +249,18 @@ private fun ReportCard(
                 }
                 StatusPill(report)
             }
-            Text("SHA-256 ${report.shortHash}…", style = SerialTextStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    "sha-256 ${report.shortHash}…",
+                    style = SerialTextStyle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                )
+            }
             Text(
                 ReportFormats.shareLine(report, now),
                 style = MaterialTheme.typography.bodySmall,
@@ -259,7 +273,7 @@ private fun ReportCard(
                     Text("View")
                 }
                 if (!report.isRevoked) {
-                    OutlinedButton(onClick = onShare, enabled = !busy) {
+                    Button(onClick = onShare, enabled = !busy, colors = KronoDefaults.recordButtonColors()) {
                         Icon(Icons.Outlined.Share, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text(if (report.isShareActive(now)) "New link" else "Share")
@@ -280,7 +294,7 @@ private fun StatusPill(report: Report) {
     } else {
         KronoTheme.status.okContainer to KronoTheme.status.onOkContainer
     }
-    Surface(color = container, contentColor = content, shape = MaterialTheme.shapes.small) {
+    Surface(color = container, contentColor = content, shape = RoundedCornerShape(50)) {
         Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 if (report.isRevoked) Icons.Outlined.Block else Icons.Outlined.Verified,

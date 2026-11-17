@@ -16,6 +16,28 @@ value class Peso(val centavos: Long) {
         return "$sign₱$whole.$cents"
     }
 
+    /**
+     * Short form for headline figures: `₱850`, `₱12,500`, `₱45.2K`, `₱1.28M`. Rounded half-up, trailing
+     * zeros dropped (`₱2M`, not `₱2.00M`). Centavos are dropped; use [format] where they matter.
+     */
+    fun formatCompact(): String {
+        val sign = if (centavos < 0) "-" else ""
+        val pesos = java.math.BigDecimal.valueOf(centavos).abs().movePointLeft(2)
+        fun scaled(divisor: Long, decimals: Int, suffix: String): String =
+            pesos.divide(java.math.BigDecimal.valueOf(divisor))
+                .setScale(decimals, java.math.RoundingMode.HALF_UP)
+                .stripTrailingZeros()
+                .toPlainString() + suffix
+        val body = when {
+            // From 999,500 up, "K" would round to "1000K".
+            pesos >= java.math.BigDecimal.valueOf(999_500) -> scaled(1_000_000, 2, "M")
+            pesos >= java.math.BigDecimal.valueOf(100_000) -> scaled(1_000, 0, "K")
+            pesos >= java.math.BigDecimal.valueOf(10_000) -> scaled(1_000, 1, "K")
+            else -> Peso(pesos.setScale(0, java.math.RoundingMode.HALF_UP).toLong() * 100).format().removePrefix("₱").removeSuffix(".00")
+        }
+        return "$sign₱$body"
+    }
+
     override fun toString(): String = format()
 
     companion object {

@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -26,7 +28,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,6 +44,7 @@ import com.kronokeep.app.ui.components.DateField
 import com.kronokeep.app.ui.components.EmptyState
 import com.kronokeep.app.ui.components.Formats
 import com.kronokeep.app.ui.components.FormTextField
+import com.kronokeep.app.ui.components.KronoTopBar
 import com.kronokeep.app.ui.maintenance.StatusPill
 import com.kronokeep.app.ui.maintenance.message
 import java.time.LocalDate
@@ -64,26 +66,24 @@ fun LogServiceScreen(viewModel: LogServiceViewModel, onDone: (savedCount: Int) -
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Log service")
-                        if (state.assetName.isNotEmpty()) {
-                            Text(state.assetName, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                },
+            KronoTopBar(
+                title = "Log service",
+                subtitle = state.assetName.ifEmpty { null },
                 navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, contentDescription = "Close") } },
             )
         },
         bottomBar = {
             if (!state.isLoading && !state.notFound) {
-                Surface(tonalElevation = 2.dp) {
+                Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
                     Row(
                         Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(16.dp),
                         horizontalArrangement = Arrangement.End,
                     ) {
-                        Button(onClick = viewModel::save, enabled = !state.isSaving, modifier = Modifier.testTag(LogServiceTags.SAVE)) {
+                        Button(
+                            onClick = viewModel::save,
+                            enabled = !state.isSaving,
+                            modifier = Modifier.height(48.dp).widthIn(min = 120.dp).testTag(LogServiceTags.SAVE),
+                        ) {
                             if (state.isSaving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text("Save")
                         }
                     }

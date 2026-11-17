@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -27,13 +29,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,6 +59,8 @@ import com.kronokeep.app.ui.assets.label
 import com.kronokeep.app.ui.components.DateField
 import com.kronokeep.app.ui.components.EmptyState
 import com.kronokeep.app.ui.components.FormTextField
+import com.kronokeep.app.ui.components.IconBadge
+import com.kronokeep.app.ui.components.KronoTopBar
 import com.kronokeep.app.ui.components.message
 import java.time.LocalDate
 
@@ -130,15 +132,9 @@ fun AssetEditorScreen(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             Column {
-                TopAppBar(
-                    title = {
-                        Text(
-                            when {
-                                state.isEdit -> "Edit asset"
-                                else -> "Add asset"
-                            },
-                        )
-                    },
+                KronoTopBar(
+                    title = if (state.isEdit) "Edit asset" else "Add asset",
+                    subtitle = if (state.isEdit) state.form.name.ifBlank { null } else null,
                     navigationIcon = {
                         if (state.isEdit || state.step == WizardStep.CATEGORY) {
                             IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, contentDescription = "Close") }
@@ -152,25 +148,26 @@ fun AssetEditorScreen(
                 if (!state.isEdit) {
                     LinearProgressIndicator(
                         progress = { state.stepNumber.toFloat() / state.steps.size },
-                        modifier = Modifier.fillMaxWidth(),
+                        trackColor = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     )
                 }
             }
         },
         bottomBar = {
             if (state.step != WizardStep.CATEGORY && !state.notFound && !state.isLoading) {
-                Surface(tonalElevation = 2.dp) {
+                Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
                     Row(
                         Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(16.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
                     ) {
                         if (!state.isEdit) {
-                            OutlinedButton(onClick = { viewModel.back() }) { Text("Back") }
+                            OutlinedButton(onClick = { viewModel.back() }, modifier = Modifier.height(48.dp)) { Text("Back") }
                         }
                         Button(
                             onClick = viewModel::next,
                             enabled = !state.isSaving,
-                            modifier = Modifier.testTag(AssetEditorTags.NEXT),
+                            modifier = Modifier.height(48.dp).widthIn(min = 120.dp).testTag(AssetEditorTags.NEXT),
                         ) {
                             if (state.isSaving) {
                                 CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -234,8 +231,10 @@ private fun CategoryStep(selected: AssetCategory?, onSelect: (AssetCategory) -> 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         AssetCategory.entries.forEach { category ->
             val isSelected = category == selected
-            OutlinedCard(
+            Surface(
                 onClick = { onSelect(category) },
+                shape = MaterialTheme.shapes.medium,
+                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
                 border = BorderStroke(
                     if (isSelected) 2.dp else 1.dp,
                     if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
@@ -243,11 +242,11 @@ private fun CategoryStep(selected: AssetCategory?, onSelect: (AssetCategory) -> 
                 modifier = Modifier.fillMaxWidth().testTag(AssetEditorTags.category(category)),
             ) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
+                    IconBadge(
                         category.icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(32.dp),
+                        size = 48.dp,
+                        container = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer,
+                        content = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                     Column(Modifier.padding(start = 16.dp)) {
                         Text(category.label, style = MaterialTheme.typography.titleMedium)

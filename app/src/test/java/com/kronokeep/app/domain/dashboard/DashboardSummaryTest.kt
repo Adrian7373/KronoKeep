@@ -13,6 +13,7 @@ import com.kronokeep.app.domain.model.ScheduleWithPrediction
 import com.kronokeep.app.domain.model.SyncState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Duration
@@ -66,6 +67,12 @@ class DashboardSummaryTest {
         assertEquals(listOf("lapsed", "soon"), s.warranties.map { it.asset.id })
         assertEquals(-10L, s.warranties.first().daysLeft)
         assertTrue(s.isAllClear)
+    }
+
+    @Test fun `featured asset is filled in, and null without assets`() {
+        val data = listOf(AssetSchedules(asset("a"), emptyList(), null))
+        assertEquals("a", DashboardSummary.from(data, today, now).featured?.asset?.id)
+        assertNull(DashboardSummary.from(emptyList(), today, now).featured)
     }
 
     @Test fun `vehicles with readings older than a week or none are stale`() {

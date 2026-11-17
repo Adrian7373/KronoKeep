@@ -19,6 +19,20 @@ class PesoTest {
         assertEquals("-₱99.00", Peso(-9_900).format())
     }
 
+    @Test fun formatsCompact() {
+        assertEquals("₱0", Peso(0).formatCompact())
+        assertEquals("₱850", Peso(85_000).formatCompact())
+        assertEquals("₱851", Peso(85_050).formatCompact())
+        assertEquals("₱9,999", Peso(999_900).formatCompact())
+        assertEquals("₱45.2K", Peso(4_523_400).formatCompact())
+        assertEquals("₱45K", Peso(4_500_000).formatCompact())
+        assertEquals("₱350K", Peso(34_960_000).formatCompact())
+        assertEquals("₱1M", Peso(99_960_000).formatCompact())
+        assertEquals("₱1.28M", Peso(128_000_000).formatCompact())
+        assertEquals("₱2M", Peso(200_000_000).formatCompact())
+        assertEquals("-₱850", Peso(-85_000).formatCompact())
+    }
+
     @Test fun parsesCommonInput() {
         assertEquals(Peso(129_950), Peso.parse("1,299.50"))
         assertEquals(Peso(129_950), Peso.parse("1299.5"))

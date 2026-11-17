@@ -200,7 +200,13 @@ class ObserveAssetMaintenanceUseCase @Inject constructor(
 }
 
 /** Live predictions for every schedule of every active asset. Shared by the dashboard and the reminder job. */
-data class AssetSchedules(val asset: Asset, val schedules: List<ScheduleWithPrediction>, val lastReading: OdometerReading?)
+data class AssetSchedules(
+    val asset: Asset,
+    val schedules: List<ScheduleWithPrediction>,
+    val lastReading: OdometerReading?,
+    val readings: List<OdometerReading> = emptyList(),
+    val rate: UsageRate? = null,
+)
 
 class ObserveAllMaintenanceUseCase @Inject constructor(
     private val assets: AssetRepository,
@@ -225,6 +231,8 @@ class ObserveAllMaintenanceUseCase @Inject constructor(
                     .map { ScheduleWithPrediction(it, MaintenanceEngine.evaluate(it.terms, usage, rate, now)) }
                     .sortedWith(URGENCY),
                 lastReading = r.maxByOrNull { it.recordedAt },
+                readings = r,
+                rate = rate,
             )
         }
     }

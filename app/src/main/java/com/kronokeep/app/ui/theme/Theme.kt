@@ -158,6 +158,34 @@ private val DarkMetal = MetalColors(
 
 private val LocalMetalColors = staticCompositionLocalOf { LightMetal }
 
+private val LocalDarkTheme = staticCompositionLocalOf { false }
+
+/**
+ * The dashboard's "vault" card: deep teal steel in both themes (primary in light, primaryContainer in dark),
+ * so its status figures use the pastel status tones that read on a dark ground.
+ */
+@Immutable
+data class HeroColors(
+    val container: Color,
+    val content: Color,
+    val muted: Color,
+    val ring: Color,
+    val overdue: Color,
+    val dueSoon: Color,
+    val accent: Color,
+)
+
+private val LightHero = HeroColors(
+    container = Color(0xFF0E3B43), content = Color(0xFFFFFFFF), muted = Color(0xB3FFFFFF), ring = Color(0x14FFFFFF),
+    overdue = Color(0xFFFFA89E), dueSoon = Color(0xFFFFCF8A), accent = Color(0xFF8FD0DB),
+)
+private val DarkHero = HeroColors(
+    container = Color(0xFF174E58), content = Color(0xFFE6F6F8), muted = Color(0xB3E6F6F8), ring = Color(0x14FFFFFF),
+    overdue = Color(0xFFFFA89E), dueSoon = Color(0xFFFFCF8A), accent = Color(0xFFA9E3EC),
+)
+
+private val LocalHeroColors = staticCompositionLocalOf { LightHero }
+
 private val KronoShapes = Shapes(
     extraSmall = RoundedCornerShape(6.dp),
     small = RoundedCornerShape(10.dp),
@@ -172,6 +200,13 @@ object KronoTheme {
 
     val metal: MetalColors
         @Composable get() = LocalMetalColors.current
+
+    val hero: HeroColors
+        @Composable get() = LocalHeroColors.current
+
+    /** The theme the app is actually drawing in (the user's choice, not just the system setting). */
+    val isDark: Boolean
+        @Composable get() = LocalDarkTheme.current
 }
 
 @Composable
@@ -182,6 +217,8 @@ fun KronoKeepTheme(
     CompositionLocalProvider(
         LocalStatusColors provides if (darkTheme) DarkStatus else LightStatus,
         LocalMetalColors provides if (darkTheme) DarkMetal else LightMetal,
+        LocalDarkTheme provides darkTheme,
+        LocalHeroColors provides if (darkTheme) DarkHero else LightHero,
     ) {
         MaterialTheme(
             colorScheme = if (darkTheme) DarkColors else LightColors,

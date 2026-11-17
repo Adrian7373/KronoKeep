@@ -11,6 +11,10 @@ import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationRailItemDefaults
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
@@ -198,8 +202,31 @@ private fun MainShell(
     val onTabRoot = navigationState.backStacks[navigationState.topLevelRoute]?.size == 1
     val adaptiveLayout = NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(currentWindowAdaptiveInfoV2())
 
+    // Selection is teal, never brass (Material's default indicator is secondaryContainer, our brass wash).
+    val scheme = MaterialTheme.colorScheme
+    val itemColors = NavigationSuiteDefaults.itemColors(
+        navigationBarItemColors = NavigationBarItemDefaults.colors(
+            indicatorColor = scheme.primaryContainer,
+            selectedIconColor = scheme.onPrimaryContainer,
+            selectedTextColor = scheme.onSurface,
+            unselectedIconColor = scheme.onSurfaceVariant,
+            unselectedTextColor = scheme.onSurfaceVariant,
+        ),
+        navigationRailItemColors = NavigationRailItemDefaults.colors(
+            indicatorColor = scheme.primaryContainer,
+            selectedIconColor = scheme.onPrimaryContainer,
+            selectedTextColor = scheme.onSurface,
+            unselectedIconColor = scheme.onSurfaceVariant,
+            unselectedTextColor = scheme.onSurfaceVariant,
+        ),
+    )
+
     NavigationSuiteScaffold(
         layoutType = if (onTabRoot) adaptiveLayout else NavigationSuiteType.None,
+        navigationSuiteColors = NavigationSuiteDefaults.colors(
+            navigationBarContainerColor = scheme.surfaceContainerLow,
+            navigationRailContainerColor = scheme.surfaceContainerLow,
+        ),
         navigationSuiteItems = {
             TOP_LEVEL_DESTINATIONS.forEach { destination ->
                 val selected = navigationState.topLevelRoute == destination.route
@@ -210,6 +237,7 @@ private fun MainShell(
                         Icon(if (selected) destination.selectedIcon else destination.icon, contentDescription = null)
                     },
                     label = { Text(destination.label) },
+                    colors = itemColors,
                 )
             }
         },

@@ -56,6 +56,7 @@ fun SuggestedSchedulesStep(state: AssetEditorUiState, vm: AssetEditorViewModel) 
                 selected = state.preset == p,
                 onClick = { vm.choosePreset(p) },
                 label = { Text(p.label) },
+                colors = com.kronokeep.app.ui.components.KronoDefaults.filterChipColors(),
                 modifier = Modifier.testTag(ScheduleStepTags.preset(p)),
             )
         }
@@ -63,6 +64,7 @@ fun SuggestedSchedulesStep(state: AssetEditorUiState, vm: AssetEditorViewModel) 
             selected = state.presetChosen && state.preset == null,
             onClick = { vm.choosePreset(null) },
             label = { Text("None for now") },
+            colors = com.kronokeep.app.ui.components.KronoDefaults.filterChipColors(),
             modifier = Modifier.testTag(ScheduleStepTags.NO_PRESET),
         )
     }
