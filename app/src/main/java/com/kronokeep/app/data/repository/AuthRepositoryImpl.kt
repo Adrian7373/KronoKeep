@@ -6,6 +6,7 @@ import com.kronokeep.app.domain.repository.AuthFailure
 import com.kronokeep.app.domain.repository.AuthFailureReason
 import com.kronokeep.app.domain.repository.AuthRepository
 import com.kronokeep.app.domain.repository.AuthState
+import io.github.jan.supabase.auth.OtpType
 import com.kronokeep.app.data.remote.FunctionErrors
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.functions.functions
@@ -18,6 +19,8 @@ import io.github.jan.supabase.exceptions.RestException
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.CoroutineScope
@@ -25,7 +28,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -36,10 +39,13 @@ class AuthRepositoryImpl @Inject constructor(
     @ApplicationScope scope: CoroutineScope,
 ) : AuthRepository {
 
+    /** True from the moment a recovery code is submitted until the new password is saved or the reset is cancelled. */
+    private val recovering = MutableStateFlow(false)
+
     override val state: StateFlow<AuthState> = provider.client
         ?.auth
         ?.sessionStatus
-        ?.map { it.toAuthState() }
+        ?.combine(recovering) { status, recovering -> AuthState.withRecovery(status.toAuthState(), recovering) }
         ?.stateIn(scope, SharingStarted.Eagerly, AuthState.Loading)
         ?: MutableStateFlow<AuthState>(AuthState.Unconfigured).asStateFlow()
 
@@ -73,6 +79,33 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun forgetSession() {
         provider.client?.auth?.clearSession()
+    }
+
+    // redirectUrl = null: the email carries a code typed into the app, so no deep link is involved.
+    override suspend fun requestPasswordReset(email: String): Result<Unit> = withClient {
+        auth.resetPasswordForEmail(email.trim(), redirectUrl = null)
+    }
+
+    override suspend fun verifyRecoveryCode(email: String, code: String): Result<Unit> {
+        // Raised before the call, so the session the server returns never shows up as SignedIn.
+        recovering.value = true
+        return withClient {
+            auth.verifyEmailOtp(type = OtpType.Email.RECOVERY, email = email.trim(), token = code.trim())
+        }.onFailure { recovering.value = false }
+    }
+
+    // NonCancellable: the code is already spent, so leaving the screen mustn't abort the update halfway.
+    override suspend fun setNewPassword(password: String): Result<Unit> = withContext(NonCancellable) {
+        withClient { auth.updateUser { this.password = password } }
+            .onSuccess { recovering.value = false }
+    }
+
+    override suspend fun cancelPasswordRecovery(): Result<Unit> = withContext(NonCancellable) {
+        val result = withClient { auth.signOut() }
+        // Offline the server logout fails; the recovery session must still go, or the user is stuck.
+        if (result.isFailure) provider.client?.auth?.clearSession()
+        recovering.value = false
+        Result.success(Unit)
     }
 
     private suspend fun withClient(block: suspend io.github.jan.supabase.SupabaseClient.() -> Unit): Result<Unit> {

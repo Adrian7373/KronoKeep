@@ -8,6 +8,18 @@ sealed interface AuthState {
     data object Loading : AuthState
     data object SignedOut : AuthState
     data class SignedIn(val userId: String, val email: String?) : AuthState
+
+    /**
+     * A recovery code was accepted, so a session exists, but the user hasn't chosen a new password yet.
+     * The app stays on the auth screen (and nothing syncs) until they do or cancel.
+     */
+    data class PasswordRecovery(val email: String?) : AuthState
+
+    companion object {
+        /** While a reset is in progress, a session is shown as [PasswordRecovery] instead of [SignedIn]. */
+        fun withRecovery(state: AuthState, recovering: Boolean): AuthState =
+            if (recovering && state is SignedIn) PasswordRecovery(state.email) else state
+    }
 }
 
 interface AuthRepository {
@@ -28,4 +40,19 @@ interface AuthRepository {
 
     /** Drops the local session without calling the server (whose user may no longer exist). */
     suspend fun forgetSession()
+
+    /**
+     * Emails a one-time recovery code. Succeeds for unknown addresses too (the server doesn't reveal
+     * which emails have accounts).
+     */
+    suspend fun requestPasswordReset(email: String): Result<Unit>
+
+    /** Checks the emailed code. On success the state becomes [AuthState.PasswordRecovery]. */
+    suspend fun verifyRecoveryCode(email: String, code: String): Result<Unit>
+
+    /** Sets the new password during recovery; on success the state becomes [AuthState.SignedIn]. */
+    suspend fun setNewPassword(password: String): Result<Unit>
+
+    /** Abandons a recovery after the code was accepted: drops the session, back to [AuthState.SignedOut]. */
+    suspend fun cancelPasswordRecovery(): Result<Unit>
 }

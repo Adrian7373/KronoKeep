@@ -9,6 +9,8 @@ enum class AuthFailureReason {
     INVALID_EMAIL,
     RATE_LIMITED,
     SIGNUP_DISABLED,
+    INVALID_CODE,
+    SAME_PASSWORD,
     NETWORK,
     UNCONFIGURED,
     UNKNOWN;
@@ -23,6 +25,8 @@ enum class AuthFailureReason {
             "email_address_invalid", "validation_failed" -> INVALID_EMAIL
             "over_request_rate_limit", "over_email_send_rate_limit", "rate_limited" -> RATE_LIMITED
             "signup_disabled", "email_provider_disabled" -> SIGNUP_DISABLED
+            "otp_expired", "otp_disabled" -> INVALID_CODE
+            "same_password" -> SAME_PASSWORD
             else -> UNKNOWN
         }
     }
