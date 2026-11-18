@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>Confirm your KronoKeep account</title>
+</head>
+<body style="margin:0;padding:0;background:#EDF1F0;-webkit-text-size-adjust:100%;">
+  <!-- Preheader: the inbox preview line. -->
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#EDF1F0;">
+    One tap to open your vault for warranties, receipts and maintenance.
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#EDF1F0;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;">
+
+          <!-- Wordmark -->
+          <tr>
+            <td style="padding:0 4px 16px 4px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:18px;font-weight:800;letter-spacing:-0.3px;color:#0E3B43;">
+              <span style="display:inline-block;width:10px;height:10px;border-radius:5px;background:#8F6A1B;margin-right:8px;vertical-align:middle;"></span>KronoKeep
+            </td>
+          </tr>
+
+          <!-- Card -->
+          <tr>
+            <td style="background:#FFFFFF;border:1px solid #D3DCDB;border-radius:16px;overflow:hidden;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+
+                <!-- Vault hero -->
+                <tr>
+                  <td style="background:#0E3B43;background-image:linear-gradient(135deg,#0E3B43 0%,#174E58 100%);border-radius:16px 16px 0 0;padding:28px 28px 24px 28px;">
+                    <div style="font-family:'Courier New',Courier,monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#8FD0DB;">
+                      Account confirmation
+                    </div>
+                    <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:26px;line-height:32px;font-weight:800;letter-spacing:-0.5px;color:#FFFFFF;padding-top:8px;">
+                      Confirm your email to open your vault
+                    </div>
+                  </td>
+                </tr>
+                <!-- Brass rule -->
+                <tr><td style="height:4px;line-height:4px;font-size:0;background:#C9A24E;">&nbsp;</td></tr>
+
+                <!-- Body -->
+                <tr>
+                  <td style="padding:28px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:23px;color:#152022;">
+                    <p style="margin:0 0 16px 0;">Thanks for signing up. Tap the button below to confirm
+                      <strong style="color:#0E3B43;">{{ .Email }}</strong>, then come back to the app and sign in.</p>
+
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0;">
+                      <tr>
+                        <td align="center" bgcolor="#0E3B43" style="border-radius:12px;">
+                          <a href="{{ .ConfirmationURL }}" target="_blank"
+                             style="display:inline-block;padding:14px 28px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;color:#FFFFFF;text-decoration:none;border-radius:12px;">
+                            Confirm email address
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Asset-tag style feature list -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                           style="background:#F6F8F8;border:1px solid #DDE5E4;border-radius:12px;">
+                      <tr>
+                        <td style="padding:16px 18px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:21px;color:#566769;">
+                          <div style="font-family:'Courier New',Courier,monospace;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#8F6A1B;padding-bottom:6px;">What's inside</div>
+                          &#9632;&nbsp; Receipts and serials, stored privately<br>
+                          &#9632;&nbsp; Maintenance predicted from your odometer<br>
+                          &#9632;&nbsp; A verified service history PDF for resale
+                        </td>
+                      </tr>
+                    </table>
+
+                    <p style="margin:24px 0 6px 0;font-size:13px;line-height:20px;color:#566769;">Button not working? Paste this link into your browser:</p>
+                    <p style="margin:0;font-family:'Courier New',Courier,monospace;font-size:12px;line-height:18px;word-break:break-all;">
+                      <a href="{{ .ConfirmationURL }}" style="color:#0E3B43;">{{ .ConfirmationURL }}</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 8px 0 8px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;color:#7D8E8F;text-align:center;">
+              Didn't create a KronoKeep account? You can ignore this email; nothing happens until the link is used.<br>
+              KronoKeep &middot; Assets, warranties and maintenance in one vault
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
