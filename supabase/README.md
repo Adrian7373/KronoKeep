@@ -98,3 +98,14 @@ The app calls `POST /functions/v1/delete-account` with `{"password": "..."}` and
 A failure partway through leaves the account in place, so calling the function again finishes the job. Once the call succeeds, the app erases its Room database, document files, sync cursors, reminder ledger and push registration, cancels sync and upload work, and drops the session. Theme and reminder preferences stay on the phone.
 
 `tests/database/account_deletion.test.sql` checks the cascade and the guard, and `_shared/account.test.ts` covers listing the storage folders and handling the password check.
+
+## Auth emails
+
+`templates/confirmation.html` (sign-up) and `templates/recovery.html` (password reset) are the branded emails. `config.toml` uses them for the local stack. The app's forgot-password flow verifies the code in `{{ .Token }}`, so the hosted reset email must use `recovery.html`; Supabase's default template carries only a link, which the app can't use.
+
+### Setup
+1. Configure custom SMTP under Authentication → Emails → SMTP Settings. On the free plan Supabase refuses template changes while the built-in mailer is in use (`entitlement_required`), and the built-in mailer only delivers to members of the organization. The hosted project uses Brevo (`smtp-relay.brevo.com`, port 587, the Brevo SMTP login and an SMTP key as the password). The SMTP key belongs only in the dashboard, never in the repo.
+2. Push both templates with a personal access token from the environment:
+   `$env:SUPABASE_ACCESS_TOKEN = "sbp_..."; .\supabase\scripts\push-email-templates.ps1` (add `-Only confirmation` or `-Only recovery` to push one).
+
+After editing a template, push it again so the hosted copy stays in step with this folder.
