@@ -54,7 +54,8 @@ class ReportRepositoryImpl @Inject constructor(
     } catch (e: ReportRemoteException) {
         throw e.toFailure()
     } catch (e: Exception) {
-        throw ReportFailure.Unavailable(e.message)
+        // Raw transport messages (URLs, headers) never reach the UI; the default copy is used instead.
+        throw ReportFailure.Unavailable(null)
     }
 }
 

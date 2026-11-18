@@ -62,10 +62,11 @@ class ReportRepositoryImplTest {
     @Test fun `missing cloud and network errors become failures`() = runBlocking {
         remote.failWith = CloudNotConfiguredException()
         assertTrue(runCatching { repo.list("asset-1") }.exceptionOrNull() is ReportFailure.CloudNotConfigured)
-        remote.failWith = java.io.IOException("timeout")
+        // Transport text (supabase-kt puts URLs and headers there) is replaced by the default copy.
+        remote.failWith = java.io.IOException("timeout at https://x.supabase.co Headers: apikey=sb_...")
         val e = runCatching { repo.revoke("r1") }.exceptionOrNull()
         assertTrue(e is ReportFailure.Unavailable)
-        assertEquals("timeout", e!!.message)
+        assertEquals("Couldn't reach the server", e!!.message)
     }
 
     @Test fun `error bodies from functions and PostgREST are both understood`() {

@@ -149,6 +149,24 @@ firebase.gcmSenderId=
 Backend setup (migrations, Edge Functions, cron secret, Vault entries) is in [`supabase/README.md`](supabase/README.md).
 Service-role keys never go into the app; they live only in Edge Function secrets.
 
+### Release APK
+
+`./gradlew :app:assembleRelease` builds a whole-app R8-minified APK. It is signed when these keys are set in
+`local.properties` (or as `KRONO_RELEASE_STOREFILE`, `KRONO_RELEASE_STOREPASSWORD`, `KRONO_RELEASE_KEYALIAS`,
+`KRONO_RELEASE_KEYPASSWORD` environment variables); without them the release APK is left unsigned.
+
+```properties
+release.storeFile=/absolute/path/outside/the/repo/kronokeep-release.jks
+release.storePassword=
+release.keyAlias=kronokeep
+release.keyPassword=
+```
+
+Create a keystore with `keytool -genkeypair -keystore kronokeep-release.jks -storetype PKCS12 -alias kronokeep
+-keyalg RSA -keysize 4096 -validity 10000`, keep it out of the repo (`*.jks` is gitignored) and back it up: an
+installed app can only be updated by an APK signed with the same key. The release build differs in signature
+from debug builds, so uninstall a debug install before installing it.
+
 ## Screenshots
 
 Coming with the demo build. Design direction and theme previews are in [`design/previews/`](design/previews/).

@@ -2,6 +2,8 @@ package com.kronokeep.app.ui.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.kronokeep.app.domain.repository.AuthFailure
+import com.kronokeep.app.domain.repository.AuthFailureReason
 import com.kronokeep.app.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +30,24 @@ object AuthValidation {
 
     fun isValidEmail(email: String): Boolean = EMAIL.matches(email.trim())
     fun isValidPassword(password: String): Boolean = password.length >= MIN_PASSWORD_LENGTH
+}
+
+/** User-facing copy for auth failures. Never shows exception text (it can carry URLs and headers). */
+object AuthMessages {
+    fun forFailure(e: Throwable): String = forReason((e as? AuthFailure)?.reason ?: AuthFailureReason.UNKNOWN)
+
+    fun forReason(reason: AuthFailureReason): String = when (reason) {
+        AuthFailureReason.INVALID_CREDENTIALS -> "That email and password don't match. Check them and try again."
+        AuthFailureReason.EMAIL_NOT_CONFIRMED -> "Confirm your email first. The link is in your inbox."
+        AuthFailureReason.ACCOUNT_EXISTS -> "An account with this email already exists. Sign in instead."
+        AuthFailureReason.WEAK_PASSWORD -> "Choose a stronger password."
+        AuthFailureReason.INVALID_EMAIL -> "That email address can't be used. Check it and try again."
+        AuthFailureReason.RATE_LIMITED -> "Too many attempts. Wait a minute, then try again."
+        AuthFailureReason.SIGNUP_DISABLED -> "New sign-ups are turned off right now."
+        AuthFailureReason.NETWORK -> "Can't reach the server. Check your connection and try again."
+        AuthFailureReason.UNCONFIGURED -> "Cloud sync isn't configured in this build."
+        AuthFailureReason.UNKNOWN -> "Something went wrong. Try again."
+    }
 }
 
 @HiltViewModel
@@ -61,7 +81,7 @@ class AuthViewModel @Inject constructor(
                             info = if (current.isSignUp) "Check your inbox to confirm your email, then sign in." else null,
                         )
                     },
-                    onFailure = { e -> state.copy(isBusy = false, error = e.message ?: "Something went wrong") },
+                    onFailure = { e -> state.copy(isBusy = false, error = AuthMessages.forFailure(e)) },
                 )
             }
         }

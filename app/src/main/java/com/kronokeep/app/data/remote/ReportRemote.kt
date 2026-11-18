@@ -108,7 +108,8 @@ class SupabaseReportRemote @Inject constructor(private val provider: SupabasePro
     } catch (e: PostgrestRestException) {
         throw ReportRemoteException(e.statusCode, e.code, e.error)
     } catch (e: RestException) {
-        throw errorFromBody(e.statusCode, e.error, e.description ?: e.message)
+        // Not e.message: supabase-kt puts the request URL and headers in it.
+        throw errorFromBody(e.statusCode, e.error, e.description)
     }
 
     companion object {

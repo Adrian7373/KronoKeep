@@ -75,8 +75,9 @@ class DocumentViewerViewModel @AssistedInject constructor(
                 throw e
             } catch (_: CloudNotConfiguredException) {
                 ViewerUiState.Error("This file is in the cloud, but cloud sync isn't set up in this build.")
-            } catch (e: Exception) {
-                ViewerUiState.Error(e.message ?: "Couldn't open the document. Check your connection.")
+            } catch (_: Exception) {
+                // Not e.message: storage errors carry the request URL and headers.
+                ViewerUiState.Error("Couldn't open the document. Check your connection.")
             }
         }
     }
