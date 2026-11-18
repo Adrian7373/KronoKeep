@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.kronokeep.app.domain.repository.AuthFailure
 import com.kronokeep.app.domain.repository.AuthFailureReason
 import com.kronokeep.app.domain.repository.AuthRepository
+import com.kronokeep.app.domain.repository.AuthState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,23 +14,71 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+enum class AuthMode {
+    SIGN_IN,
+    SIGN_UP,
+    /** Forgot password, step 1: enter the email to send a code to. */
+    RESET_REQUEST,
+    /** Step 2: enter the emailed code. */
+    RESET_CODE,
+    /** Step 3: the code was accepted; choose a new password. */
+    NEW_PASSWORD,
+}
+
 data class AuthUiState(
+    val mode: AuthMode = AuthMode.SIGN_IN,
     val email: String = "",
     val password: String = "",
-    val isSignUp: Boolean = false,
+    val confirmPassword: String = "",
+    val code: String = "",
     val isBusy: Boolean = false,
     val error: String? = null,
     val info: String? = null,
 ) {
-    val canSubmit: Boolean get() = !isBusy && AuthValidation.isValidEmail(email) && AuthValidation.isValidPassword(password)
+    val isSignUp: Boolean get() = mode == AuthMode.SIGN_UP
+
+    /** Shown under the confirm field once the user has typed something that doesn't match. */
+    val passwordsMismatch: Boolean get() = confirmPassword.isNotEmpty() && confirmPassword != password
+
+    val canSubmit: Boolean get() = !isBusy && when (mode) {
+        AuthMode.SIGN_IN, AuthMode.SIGN_UP ->
+            AuthValidation.isValidEmail(email) && AuthValidation.isValidPassword(password)
+        AuthMode.RESET_REQUEST -> AuthValidation.isValidEmail(email)
+        AuthMode.RESET_CODE -> AuthValidation.isValidRecoveryCode(code)
+        AuthMode.NEW_PASSWORD -> AuthValidation.isValidPassword(password) && password == confirmPassword
+    }
+
+    fun withAuthState(auth: AuthState): AuthUiState = when {
+        auth is AuthState.PasswordRecovery && mode != AuthMode.NEW_PASSWORD -> copy(
+            mode = AuthMode.NEW_PASSWORD,
+            email = auth.email ?: email,
+            password = "",
+            confirmPassword = "",
+            code = "",
+            error = null,
+            info = null,
+        )
+        // Recovery cancelled (or the session dropped): start over at sign-in.
+        auth == AuthState.SignedOut && mode == AuthMode.NEW_PASSWORD ->
+            copy(mode = AuthMode.SIGN_IN, password = "", confirmPassword = "", isBusy = false)
+        else -> this
+    }
 }
 
 object AuthValidation {
     private val EMAIL = Regex("""^[^\s@]+@[^\s@]+\.[^\s@]+$""")
     const val MIN_PASSWORD_LENGTH = 8
 
+    /** Supabase email OTPs are 6 digits by default; a project can raise that to 10. */
+    private val RECOVERY_CODE = Regex("""^\d{6,10}$""")
+    const val MAX_CODE_LENGTH = 10
+
     fun isValidEmail(email: String): Boolean = EMAIL.matches(email.trim())
     fun isValidPassword(password: String): Boolean = password.length >= MIN_PASSWORD_LENGTH
+    fun isValidRecoveryCode(code: String): Boolean = RECOVERY_CODE.matches(code)
+
+    /** Keeps only digits, so a pasted "123 456" or "123-456" still works. */
+    fun normalizeCode(input: String): String = input.filter(Char::isDigit).take(MAX_CODE_LENGTH)
 }
 
 /** User-facing copy for auth failures. Never shows exception text (it can carry URLs and headers). */
@@ -44,10 +93,16 @@ object AuthMessages {
         AuthFailureReason.INVALID_EMAIL -> "That email address can't be used. Check it and try again."
         AuthFailureReason.RATE_LIMITED -> "Too many attempts. Wait a minute, then try again."
         AuthFailureReason.SIGNUP_DISABLED -> "New sign-ups are turned off right now."
+        AuthFailureReason.INVALID_CODE -> "That code is wrong or has expired. Check it, or send a new one."
+        AuthFailureReason.SAME_PASSWORD -> "That's your current password. Choose a different one."
         AuthFailureReason.NETWORK -> "Can't reach the server. Check your connection and try again."
         AuthFailureReason.UNCONFIGURED -> "Cloud sync isn't configured in this build."
         AuthFailureReason.UNKNOWN -> "Something went wrong. Try again."
     }
+
+    /** Deliberately the same whether or not the address has an account. */
+    fun codeSent(email: String): String =
+        "If an account exists for ${email.trim()}, we've emailed it a code. It can take a minute to arrive."
 }
 
 @HiltViewModel
@@ -58,29 +113,83 @@ class AuthViewModel @Inject constructor(
     private val _state = MutableStateFlow(AuthUiState())
     val state: StateFlow<AuthUiState> = _state.asStateFlow()
 
+    init {
+        // The new-password step follows the session, so it survives this screen being recreated.
+        viewModelScope.launch {
+            authRepository.state.collect { auth -> _state.update { it.withAuthState(auth) } }
+        }
+    }
+
     fun onEmailChange(value: String) = _state.update { it.copy(email = value, error = null) }
     fun onPasswordChange(value: String) = _state.update { it.copy(password = value, error = null) }
-    fun toggleMode() = _state.update { it.copy(isSignUp = !it.isSignUp, error = null, info = null) }
+    fun onConfirmPasswordChange(value: String) = _state.update { it.copy(confirmPassword = value, error = null) }
+    fun onCodeChange(value: String) = _state.update { it.copy(code = AuthValidation.normalizeCode(value), error = null) }
+
+    fun toggleMode() = _state.update {
+        it.copy(mode = if (it.isSignUp) AuthMode.SIGN_IN else AuthMode.SIGN_UP, error = null, info = null)
+    }
+
+    fun startPasswordReset() = _state.update {
+        it.copy(mode = AuthMode.RESET_REQUEST, password = "", code = "", error = null, info = null)
+    }
+
+    /** Back to sign-in from the email or code step. The new-password step uses [cancelPasswordReset]. */
+    fun backToSignIn() = _state.update {
+        it.copy(mode = AuthMode.SIGN_IN, code = "", password = "", confirmPassword = "", error = null, info = null)
+    }
+
+    /** From the code step: change the address the code goes to. */
+    fun changeEmail() = _state.update { it.copy(mode = AuthMode.RESET_REQUEST, code = "", error = null, info = null) }
 
     fun submit() {
         val current = _state.value
         if (!current.canSubmit) return
+        when (current.mode) {
+            AuthMode.SIGN_IN, AuthMode.SIGN_UP -> launchCall(
+                call = {
+                    if (current.isSignUp) authRepository.signUp(current.email, current.password)
+                    else authRepository.signIn(current.email, current.password)
+                },
+                // On sign-up with email confirmation on, no session arrives; tell the user why.
+                onSuccess = {
+                    it.copy(info = if (current.isSignUp) "Check your inbox to confirm your email, then sign in." else null)
+                },
+            )
+            AuthMode.RESET_REQUEST -> sendCode(current.email)
+            // Success needs no UI change here: the PasswordRecovery state moves the screen on.
+            AuthMode.RESET_CODE -> launchCall(call = { authRepository.verifyRecoveryCode(current.email, current.code) })
+            // Success: the session becomes SignedIn and the app opens the vault.
+            AuthMode.NEW_PASSWORD -> launchCall(call = { authRepository.setNewPassword(current.password) })
+        }
+    }
+
+    fun resendCode() {
+        val current = _state.value
+        if (current.isBusy || current.mode != AuthMode.RESET_CODE) return
+        sendCode(current.email)
+    }
+
+    /** Leaves the new-password step; the SignedOut state that follows returns the screen to sign-in. */
+    fun cancelPasswordReset() {
+        if (_state.value.isBusy) return
+        launchCall(call = { authRepository.cancelPasswordRecovery() })
+    }
+
+    private fun sendCode(email: String) = launchCall(
+        call = { authRepository.requestPasswordReset(email) },
+        onSuccess = { it.copy(mode = AuthMode.RESET_CODE, code = "", info = AuthMessages.codeSent(email)) },
+    )
+
+    private fun launchCall(
+        call: suspend () -> Result<Unit>,
+        onSuccess: (AuthUiState) -> AuthUiState = { it },
+    ) {
         _state.update { it.copy(isBusy = true, error = null, info = null) }
         viewModelScope.launch {
-            val result = if (current.isSignUp) {
-                authRepository.signUp(current.email, current.password)
-            } else {
-                authRepository.signIn(current.email, current.password)
-            }
+            val result = call()
             _state.update { state ->
                 result.fold(
-                    onSuccess = {
-                        // On sign-up with email confirmation on, no session arrives; tell the user why.
-                        state.copy(
-                            isBusy = false,
-                            info = if (current.isSignUp) "Check your inbox to confirm your email, then sign in." else null,
-                        )
-                    },
+                    onSuccess = { onSuccess(state.copy(isBusy = false)) },
                     onFailure = { e -> state.copy(isBusy = false, error = AuthMessages.forFailure(e)) },
                 )
             }

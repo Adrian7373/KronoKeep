@@ -10,3 +10,15 @@ verify_jwt = false
 # and share links are checked against a hashed, expiring token. generate-report keeps JWT verification on.
 [functions.verify-report]
 verify_jwt = false
+
+# Branded sign-up confirmation email. The hosted project's copy is set in the dashboard
+# (Authentication > Emails) and must be kept in sync with this file by hand.
+[auth.email.template.confirmation]
+subject = "Confirm your KronoKeep account"
+content_path = "./supabase/templates/confirmation.html"
+
+# Password reset: the app's forgot-password flow verifies the emailed {{ .Token }} (type "recovery"),
+# so this template must show the code, not just a link. Mirror it in the dashboard like the one above.
+[auth.email.template.recovery]
+subject = "Your KronoKeep password reset code"
+content_path = "./supabase/templates/recovery.html"

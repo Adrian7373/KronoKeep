@@ -86,7 +86,7 @@ fun KronoKeepAppRoot(viewModel: AppViewModel = hiltViewModel()) {
         AuthState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
-        AuthState.SignedOut -> AuthScreen()
+        AuthState.SignedOut, is AuthState.PasswordRecovery -> AuthScreen()
         AuthState.Unconfigured, is AuthState.SignedIn -> {
             val askForNotifications by viewModel.shouldAskForNotifications.collectAsStateWithLifecycle()
             NotificationPermissionGate(askForNotifications, viewModel::onNotificationPromptShown)

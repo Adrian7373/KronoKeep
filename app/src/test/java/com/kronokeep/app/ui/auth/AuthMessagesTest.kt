@@ -17,6 +17,8 @@ class AuthMessagesTest {
         assertEquals(AuthFailureReason.WEAK_PASSWORD, AuthFailureReason.fromCode("weak_password"))
         assertEquals(AuthFailureReason.RATE_LIMITED, AuthFailureReason.fromCode("over_request_rate_limit"))
         assertEquals(AuthFailureReason.SIGNUP_DISABLED, AuthFailureReason.fromCode("signup_disabled"))
+        assertEquals(AuthFailureReason.INVALID_CREDENTIALS, AuthFailureReason.fromCode("invalid_password"))
+        assertEquals(AuthFailureReason.RATE_LIMITED, AuthFailureReason.fromCode("rate_limited"))
         assertEquals(AuthFailureReason.UNKNOWN, AuthFailureReason.fromCode("something_new"))
         assertEquals(AuthFailureReason.UNKNOWN, AuthFailureReason.fromCode(null))
     }

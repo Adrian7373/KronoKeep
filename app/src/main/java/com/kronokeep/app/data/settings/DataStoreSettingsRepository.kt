@@ -67,11 +67,14 @@ class DataStoreSettingsRepository @Inject constructor(
             value(v)?.let { k to it }
         }.toMap()
 
-    private companion object {
-        val THEME_MODE = stringPreferencesKey("theme_mode")
-        val REMINDERS = booleanPreferencesKey("reminders_enabled")
-        val PROMPT_SHOWN = booleanPreferencesKey("notification_prompt_shown")
-        val LEDGER_STATUS = stringPreferencesKey("reminder_ledger_status")
-        val LEDGER_ODOMETER = stringPreferencesKey("reminder_ledger_odometer")
+    companion object {
+        private val THEME_MODE = stringPreferencesKey("theme_mode")
+        private val REMINDERS = booleanPreferencesKey("reminders_enabled")
+        private val PROMPT_SHOWN = booleanPreferencesKey("notification_prompt_shown")
+        private val LEDGER_STATUS = stringPreferencesKey("reminder_ledger_status")
+        private val LEDGER_ODOMETER = stringPreferencesKey("reminder_ledger_odometer")
+
+        /** Device preferences that survive account deletion; every other key belongs to the account. */
+        val DEVICE_PREFERENCE_NAMES: Set<String> = setOf(THEME_MODE.name, REMINDERS.name, PROMPT_SHOWN.name)
     }
 }

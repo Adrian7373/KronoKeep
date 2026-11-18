@@ -136,4 +136,22 @@ class FakeAuth(initial: AuthState = AuthState.SignedIn("user-1", "me@example.com
     override suspend fun signIn(email: String, password: String) = Result.success(Unit)
     override suspend fun signUp(email: String, password: String) = Result.success(Unit)
     override suspend fun signOut() = Result.success(Unit).also { state.value = AuthState.SignedOut }
+    override suspend fun requestPasswordReset(email: String) = Result.success(Unit)
+    override suspend fun verifyRecoveryCode(email: String, code: String) = Result.success(Unit)
+    override suspend fun setNewPassword(password: String) = Result.success(Unit)
+    override suspend fun cancelPasswordRecovery() = signOut()
+
+    var deleteResult: Result<Unit> = Result.success(Unit)
+    val deleteCalls = mutableListOf<String>()
+    var sessionForgotten = false
+
+    override suspend fun deleteAccount(password: String): Result<Unit> {
+        deleteCalls += password
+        return deleteResult
+    }
+
+    override suspend fun forgetSession() {
+        sessionForgotten = true
+        state.value = AuthState.SignedOut
+    }
 }

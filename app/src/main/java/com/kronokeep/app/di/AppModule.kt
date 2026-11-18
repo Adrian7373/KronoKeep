@@ -27,7 +27,9 @@ import com.kronokeep.app.domain.repository.SettingsRepository
 import com.kronokeep.app.data.document.AndroidDocumentImporter
 import com.kronokeep.app.data.document.DiskFileStore
 import com.kronokeep.app.data.document.LocalFileStore
+import com.kronokeep.app.data.local.AndroidLocalDataEraser
 import com.kronokeep.app.data.local.KronoDatabase
+import com.kronokeep.app.domain.repository.LocalDataEraser
 import com.kronokeep.app.data.local.RoomTransactionRunner
 import com.kronokeep.app.data.local.TransactionRunner
 import com.kronokeep.app.data.remote.DocumentStorage
@@ -131,6 +133,7 @@ object AppModule {
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
     @Binds abstract fun bindAuthRepository(impl: AuthRepositoryImpl): AuthRepository
+    @Binds abstract fun bindLocalDataEraser(impl: AndroidLocalDataEraser): LocalDataEraser
     @Binds abstract fun bindAssetRepository(impl: AssetRepositoryImpl): AssetRepository
     @Binds abstract fun bindDocumentRepository(impl: DocumentRepositoryImpl): DocumentRepository
     @Binds abstract fun bindDocumentImporter(impl: AndroidDocumentImporter): DocumentImporter

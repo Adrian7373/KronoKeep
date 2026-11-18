@@ -79,3 +79,22 @@ The JSON includes the asset name/category/brand/model, the entry count and each 
 ### Tests
 
 The snapshot, canonical JSON, hashing, formatting, WinAnsi sanitiser, word wrap and verify/share rules live in `_shared/report.ts` and are covered by `report.test.ts` (part of `node --test "supabase/functions/_shared/*.test.ts"`). `pdf.ts` and the two functions use `npm:` imports and are checked with `deno check supabase/functions/generate-report/index.ts supabase/functions/verify-report/index.ts`.
+
+## Account deletion
+
+### Setup
+
+1. Apply `migrations/20261118000000_account_deletion.sql`. It changes the locked-log guard so the `schedule_id` SET NULL that a cascade causes doesn't block deleting a user who has verified reports. Every other change to a locked log is still rejected.
+2. Deploy: `supabase functions deploy delete-account`. JWT verification stays on, and there are no extra secrets.
+
+### Flow
+
+The app calls `POST /functions/v1/delete-account` with `{"password": "..."}` and the user's access token. The function:
+
+1. Checks the password again by signing in with a throwaway client. A wrong one gets 403 `invalid_password` and Auth's rate limit gets 429 `rate_limited`, so a phone left unlocked isn't enough to delete the account.
+2. Removes every object under `{user_id}/` in the `documents` and `reports` buckets. Storage objects aren't tied to `auth.users`, so nothing else would clean them up.
+3. Calls `auth.admin.deleteUser`. Every public table cascades from `auth.users`, so all of the user's rows go in one statement, locked logs and reports included. Verify links for those reports then answer NOT FOUND.
+
+A failure partway through leaves the account in place, so calling the function again finishes the job. Once the call succeeds, the app erases its Room database, document files, sync cursors, reminder ledger and push registration, cancels sync and upload work, and drops the session. Theme and reminder preferences stay on the phone.
+
+`tests/database/account_deletion.test.sql` checks the cascade and the guard, and `_shared/account.test.ts` covers listing the storage folders and handling the password check.
