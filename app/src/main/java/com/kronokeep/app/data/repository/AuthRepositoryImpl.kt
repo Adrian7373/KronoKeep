@@ -63,6 +63,16 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    // A code instead of the link: the link's redirect lands on the Site URL with the session in the URL.
+    // EMAIL covers sign-up codes on verify; resending needs the specific SIGNUP type.
+    override suspend fun verifySignUpCode(email: String, code: String): Result<Unit> = withClient {
+        auth.verifyEmailOtp(type = OtpType.Email.EMAIL, email = email.trim(), token = code.trim())
+    }
+
+    override suspend fun resendSignUpCode(email: String): Result<Unit> = withClient {
+        auth.resendEmail(OtpType.Email.SIGNUP, email.trim(), redirectUrl = null)
+    }
+
     override suspend fun signOut(): Result<Unit> = withClient { auth.signOut() }
 
     override suspend fun deleteAccount(password: String): Result<Unit> = withClient {

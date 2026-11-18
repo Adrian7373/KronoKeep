@@ -10,13 +10,13 @@ import org.junit.Test
 
 class PasswordResetTest {
 
-    @Test fun `recovery codes are 6 to 10 digits`() {
-        assertTrue(AuthValidation.isValidRecoveryCode("123456"))
-        assertTrue(AuthValidation.isValidRecoveryCode("1234567890"))
-        assertFalse(AuthValidation.isValidRecoveryCode("12345"))
-        assertFalse(AuthValidation.isValidRecoveryCode("12345678901"))
-        assertFalse(AuthValidation.isValidRecoveryCode("12a456"))
-        assertFalse(AuthValidation.isValidRecoveryCode(""))
+    @Test fun `email codes are 6 to 10 digits`() {
+        assertTrue(AuthValidation.isValidEmailCode("123456"))
+        assertTrue(AuthValidation.isValidEmailCode("1234567890"))
+        assertFalse(AuthValidation.isValidEmailCode("12345"))
+        assertFalse(AuthValidation.isValidEmailCode("12345678901"))
+        assertFalse(AuthValidation.isValidEmailCode("12a456"))
+        assertFalse(AuthValidation.isValidEmailCode(""))
     }
 
     @Test fun `pasted codes keep only digits and are capped`() {

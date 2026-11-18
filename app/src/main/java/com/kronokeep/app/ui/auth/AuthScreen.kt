@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockReset
+import androidx.compose.material.icons.outlined.MarkEmailRead
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
@@ -109,10 +110,10 @@ private fun BrandTag(icon: ImageVector = Icons.Outlined.Lock) {
 @Composable
 fun AuthScreen(viewModel: AuthViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val resetting = state.mode != AuthMode.SIGN_IN && state.mode != AuthMode.SIGN_UP
+    val inFlow = state.mode != AuthMode.SIGN_IN && state.mode != AuthMode.SIGN_UP
 
-    // System back steps out of the reset flow instead of closing the app.
-    BackHandler(enabled = resetting) {
+    // System back steps out of the code and reset steps instead of closing the app.
+    BackHandler(enabled = inFlow) {
         when (state.mode) {
             AuthMode.RESET_CODE -> viewModel.changeEmail()
             AuthMode.NEW_PASSWORD -> viewModel.cancelPasswordReset()
@@ -137,10 +138,18 @@ fun AuthScreen(viewModel: AuthViewModel = hiltViewModel()) {
             verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            BrandTag(if (resetting) Icons.Outlined.LockReset else Icons.Outlined.Lock)
+            BrandTag(
+                when (state.mode) {
+                    AuthMode.SIGN_IN, AuthMode.SIGN_UP -> Icons.Outlined.Lock
+                    AuthMode.SIGNUP_CODE -> Icons.Outlined.MarkEmailRead
+                    else -> Icons.Outlined.LockReset
+                },
+            )
             val (title, subtitle) = when (state.mode) {
                 AuthMode.SIGN_IN -> "Welcome back" to "Sign in to open your vault of warranties, receipts and maintenance."
                 AuthMode.SIGN_UP -> "Create your vault" to "Log your assets once. KronoKeep keeps track of what's due."
+                AuthMode.SIGNUP_CODE -> "Confirm your email" to
+                    "Type the code we sent to ${state.email.trim()} to finish creating your vault."
                 AuthMode.RESET_REQUEST -> "Reset password" to "Enter your account's email and we'll send you a code."
                 AuthMode.RESET_CODE -> "Enter the code" to "Type the code from the email we sent to ${state.email.trim()}."
                 AuthMode.NEW_PASSWORD -> "New password" to "Choose a new password for ${state.email.trim()}."
@@ -166,7 +175,7 @@ fun AuthScreen(viewModel: AuthViewModel = hiltViewModel()) {
             )
             Spacer(Modifier.height(4.dp))
 
-            if (!resetting) {
+            if (!inFlow) {
                 AuthModeSwitch(signUp = state.isSignUp, enabled = !state.isBusy, onSelect = viewModel::selectSignUp)
             }
 
@@ -193,6 +202,7 @@ fun AuthScreen(viewModel: AuthViewModel = hiltViewModel()) {
                                 when (state.mode) {
                                     AuthMode.SIGN_IN -> "Sign in"
                                     AuthMode.SIGN_UP -> "Create account"
+                                    AuthMode.SIGNUP_CODE -> "Confirm email"
                                     AuthMode.RESET_REQUEST -> "Send code"
                                     AuthMode.RESET_CODE -> "Verify code"
                                     AuthMode.NEW_PASSWORD -> "Save password"
@@ -207,6 +217,10 @@ fun AuthScreen(viewModel: AuthViewModel = hiltViewModel()) {
                 // The switch above the card already flips between sign-in and sign-up.
                 AuthMode.SIGN_IN, AuthMode.SIGN_UP -> Unit
                 AuthMode.RESET_REQUEST -> TextButton(onClick = viewModel::backToSignIn) { Text("Back to sign in") }
+                AuthMode.SIGNUP_CODE -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = viewModel::resendCode, enabled = !state.isBusy) { Text("Send a new code") }
+                    TextButton(onClick = viewModel::backToSignIn, enabled = !state.isBusy) { Text("Back to sign in") }
+                }
                 AuthMode.RESET_CODE -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(onClick = viewModel::resendCode, enabled = !state.isBusy) { Text("Send a new code") }
                     TextButton(onClick = viewModel::changeEmail, enabled = !state.isBusy) { Text("Use another email") }
@@ -242,7 +256,7 @@ private fun ColumnScope.FormFields(state: AuthUiState, viewModel: AuthViewModel)
             NewPasswordFields(state, viewModel)
         }
         AuthMode.RESET_REQUEST -> EmailField(state.email, viewModel::onEmailChange, ImeAction.Done, viewModel::submit)
-        AuthMode.RESET_CODE -> OutlinedTextField(
+        AuthMode.SIGNUP_CODE, AuthMode.RESET_CODE -> OutlinedTextField(
             value = state.code,
             onValueChange = viewModel::onCodeChange,
             label = { Text("Code") },

@@ -101,7 +101,7 @@ A failure partway through leaves the account in place, so calling the function a
 
 ## Auth emails
 
-`templates/confirmation.html` (sign-up) and `templates/recovery.html` (password reset) are the branded emails. `config.toml` uses them for the local stack. The app's forgot-password flow verifies the code in `{{ .Token }}`, so the hosted reset email must use `recovery.html`; Supabase's default template carries only a link, which the app can't use.
+`templates/confirmation.html` (sign-up) and `templates/recovery.html` (password reset) are the branded emails. `config.toml` uses them for the local stack. Both flows verify the code in `{{ .Token }}` inside the app, so the hosted emails must use these templates; Supabase's defaults carry only a link. For sign-up the link would also redirect to the Site URL (`localhost` by default) with the new session in the URL, which is why the confirmation email has no link.
 
 ### Setup
 1. Configure custom SMTP under Authentication → Emails → SMTP Settings. On the free plan Supabase refuses template changes while the built-in mailer is in use (`entitlement_required`), and the built-in mailer only delivers to members of the organization. The hosted project uses Brevo (`smtp-relay.brevo.com`, port 587, the Brevo SMTP login and an SMTP key as the password). The SMTP key belongs only in the dashboard, never in the repo.

@@ -11,8 +11,9 @@ verify_jwt = false
 [functions.verify-report]
 verify_jwt = false
 
-# Branded sign-up confirmation email. The hosted project's copy is set in the dashboard
-# (Authentication > Emails) and must be kept in sync with this file by hand.
+# Branded sign-up confirmation email. It shows {{ .Token }}, which the app verifies (no link: the link's
+# redirect would land on the Site URL with the session in the URL). Push it to the hosted project with
+# supabase/scripts/push-email-templates.ps1.
 [auth.email.template.confirmation]
 subject = "Confirm your KronoKeep account"
 content_path = "./supabase/templates/confirmation.html"
