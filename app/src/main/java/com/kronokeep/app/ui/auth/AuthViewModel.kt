@@ -40,12 +40,22 @@ data class AuthUiState(
     /** Shown under the confirm field once the user has typed something that doesn't match. */
     val passwordsMismatch: Boolean get() = confirmPassword.isNotEmpty() && confirmPassword != password
 
+    /** The checklist tick: both fields filled in and identical. */
+    val passwordsMatch: Boolean get() = password.isNotEmpty() && confirmPassword == password
+
     val canSubmit: Boolean get() = !isBusy && when (mode) {
-        AuthMode.SIGN_IN, AuthMode.SIGN_UP ->
-            AuthValidation.isValidEmail(email) && AuthValidation.isValidPassword(password)
+        AuthMode.SIGN_IN -> AuthValidation.isValidEmail(email) && AuthValidation.isValidPassword(password)
+        AuthMode.SIGN_UP -> AuthValidation.isValidEmail(email) &&
+            AuthValidation.isValidPassword(password) && password == confirmPassword
         AuthMode.RESET_REQUEST -> AuthValidation.isValidEmail(email)
         AuthMode.RESET_CODE -> AuthValidation.isValidRecoveryCode(code)
         AuthMode.NEW_PASSWORD -> AuthValidation.isValidPassword(password) && password == confirmPassword
+    }
+
+    fun withSignUp(signUp: Boolean): AuthUiState {
+        val target = if (signUp) AuthMode.SIGN_UP else AuthMode.SIGN_IN
+        if (mode == target || (mode != AuthMode.SIGN_IN && mode != AuthMode.SIGN_UP)) return this
+        return copy(mode = target, confirmPassword = "", error = null, info = null)
     }
 
     fun withAuthState(auth: AuthState): AuthUiState = when {
@@ -125,9 +135,8 @@ class AuthViewModel @Inject constructor(
     fun onConfirmPasswordChange(value: String) = _state.update { it.copy(confirmPassword = value, error = null) }
     fun onCodeChange(value: String) = _state.update { it.copy(code = AuthValidation.normalizeCode(value), error = null) }
 
-    fun toggleMode() = _state.update {
-        it.copy(mode = if (it.isSignUp) AuthMode.SIGN_IN else AuthMode.SIGN_UP, error = null, info = null)
-    }
+    /** Switches between the sign-in and create-account tabs; the confirm field starts empty each time. */
+    fun selectSignUp(signUp: Boolean) = _state.update { it.withSignUp(signUp) }
 
     fun startPasswordReset() = _state.update {
         it.copy(mode = AuthMode.RESET_REQUEST, password = "", code = "", error = null, info = null)
