@@ -17,6 +17,22 @@ val localProps: Properties = Properties().apply {
 
 fun String.asBuildConfigString(): String = "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
+/**
+ * Release signing: local.properties `release.*` keys, or KRONO_RELEASE_* env vars (CI). The keystore lives
+ * outside the repo. Without all four values, release builds stay unsigned rather than failing.
+ */
+fun releaseSecret(key: String): String? =
+    System.getenv("KRONO_RELEASE_" + key.uppercase())?.takeIf { it.isNotBlank() }
+        ?: localProps.getProperty("release.$key")?.takeIf { it.isNotBlank() }
+
+val releaseStoreFile = releaseSecret("storeFile")?.let(::file)?.takeIf { it.exists() }
+val releaseStorePassword = releaseSecret("storePassword")
+val releaseKeyAlias = releaseSecret("keyAlias")
+val releaseKeyPassword = releaseSecret("keyPassword")
+val hasReleaseSigning = releaseStoreFile != null && releaseStorePassword != null &&
+    releaseKeyAlias != null && releaseKeyPassword != null
+if (!hasReleaseSigning) logger.warn("KronoKeep: no release signing configured; release APK will be unsigned.")
+
 android {
     namespace = "com.kronokeep.app"
     compileSdk {
@@ -50,11 +66,24 @@ android {
         }
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = releaseStoreFile
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
+            // Whole-app R8. A packageScope limited to androidx/kotlin/kotlinx crashed at launch: R8 made
+            // kotlin.text classes package-private while out-of-scope code (Ktor/supabase) still extended them.
             optimization {
                 enable = true
-                packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
             }
         }
     }

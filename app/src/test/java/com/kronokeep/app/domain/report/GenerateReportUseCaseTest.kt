@@ -98,6 +98,7 @@ class GenerateReportUseCaseTest {
         assertEquals(1, sync.syncRequests)
 
         remote.failWith = java.io.IOException("offline")
-        assertEquals(GenerateReportResult.Failed("offline"), generate("asset-1"))
+        // Raw transport text is never shown; the default copy is.
+        assertEquals(GenerateReportResult.Failed("Couldn't reach the server"), generate("asset-1"))
     }
 }

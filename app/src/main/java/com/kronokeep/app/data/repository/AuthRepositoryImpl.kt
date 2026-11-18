@@ -2,9 +2,16 @@ package com.kronokeep.app.data.repository
 
 import com.kronokeep.app.data.remote.SupabaseProvider
 import com.kronokeep.app.di.ApplicationScope
+import com.kronokeep.app.domain.repository.AuthFailure
+import com.kronokeep.app.domain.repository.AuthFailureReason
 import com.kronokeep.app.domain.repository.AuthRepository
 import com.kronokeep.app.domain.repository.AuthState
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.exceptions.HttpRequestException
+import io.github.jan.supabase.exceptions.RestException
+import io.ktor.client.plugins.HttpRequestTimeoutException
+import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.CoroutineScope
@@ -47,8 +54,22 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun signOut(): Result<Unit> = withClient { auth.signOut() }
 
     private suspend fun withClient(block: suspend io.github.jan.supabase.SupabaseClient.() -> Unit): Result<Unit> {
-        val client = provider.client ?: return Result.failure(IllegalStateException("Cloud sync isn't configured"))
-        return runCatching { client.block() }
+        val client = provider.client ?: return Result.failure(AuthFailure(AuthFailureReason.UNCONFIGURED))
+        return try {
+            client.block()
+            Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(AuthFailure(e.toAuthFailureReason(), e))
+        }
+    }
+
+    /** Raw supabase-kt messages include the request URL and headers, so only the code is kept. */
+    private fun Exception.toAuthFailureReason(): AuthFailureReason = when (this) {
+        is RestException -> AuthFailureReason.fromCode(error)
+        is HttpRequestException, is HttpRequestTimeoutException, is IOException -> AuthFailureReason.NETWORK
+        else -> AuthFailureReason.UNKNOWN
     }
 
     private fun SessionStatus.toAuthState(): AuthState = when (this) {
