@@ -19,4 +19,13 @@ interface AuthRepository {
     suspend fun signUp(email: String, password: String): Result<Unit>
 
     suspend fun signOut(): Result<Unit>
+
+    /**
+     * Permanently deletes the signed-in account and all its cloud data (rows and stored files). The server
+     * re-checks [password]. The local session is left in place: call [forgetSession] once local data is erased.
+     */
+    suspend fun deleteAccount(password: String): Result<Unit>
+
+    /** Drops the local session without calling the server (whose user may no longer exist). */
+    suspend fun forgetSession()
 }

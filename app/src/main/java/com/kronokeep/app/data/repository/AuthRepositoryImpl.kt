@@ -6,7 +6,13 @@ import com.kronokeep.app.domain.repository.AuthFailure
 import com.kronokeep.app.domain.repository.AuthFailureReason
 import com.kronokeep.app.domain.repository.AuthRepository
 import com.kronokeep.app.domain.repository.AuthState
+import com.kronokeep.app.data.remote.FunctionErrors
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.functions.functions
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.isSuccess
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import io.github.jan.supabase.exceptions.HttpRequestException
 import io.github.jan.supabase.exceptions.RestException
 import io.ktor.client.plugins.HttpRequestTimeoutException
@@ -53,6 +59,22 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun signOut(): Result<Unit> = withClient { auth.signOut() }
 
+    override suspend fun deleteAccount(password: String): Result<Unit> = withClient {
+        val response = try {
+            functions.invoke("delete-account", buildJsonObject { put("password", password) })
+        } catch (e: RestException) {
+            // Not e.message: supabase-kt puts the request URL and headers in it.
+            throw AuthFailure(FunctionErrors.deleteAccountReason(e.statusCode, e.error))
+        }
+        if (!response.status.isSuccess()) {
+            throw AuthFailure(FunctionErrors.deleteAccountReason(response.status.value, response.bodyAsText()))
+        }
+    }
+
+    override suspend fun forgetSession() {
+        provider.client?.auth?.clearSession()
+    }
+
     private suspend fun withClient(block: suspend io.github.jan.supabase.SupabaseClient.() -> Unit): Result<Unit> {
         val client = provider.client ?: return Result.failure(AuthFailure(AuthFailureReason.UNCONFIGURED))
         return try {
@@ -60,6 +82,8 @@ class AuthRepositoryImpl @Inject constructor(
             Result.success(Unit)
         } catch (e: CancellationException) {
             throw e
+        } catch (e: AuthFailure) {
+            Result.failure(e)
         } catch (e: Exception) {
             Result.failure(AuthFailure(e.toAuthFailureReason(), e))
         }

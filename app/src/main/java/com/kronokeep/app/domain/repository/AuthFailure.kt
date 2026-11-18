@@ -14,14 +14,14 @@ enum class AuthFailureReason {
     UNKNOWN;
 
     companion object {
-        /** Maps a Supabase Auth `error_code` (e.g. `invalid_credentials`) to a reason. */
+        /** Maps a Supabase Auth `error_code` (e.g. `invalid_credentials`) or a delete-account `error` to a reason. */
         fun fromCode(code: String?): AuthFailureReason = when (code?.trim()?.lowercase()) {
-            "invalid_credentials", "invalid_grant" -> INVALID_CREDENTIALS
+            "invalid_credentials", "invalid_grant", "invalid_password" -> INVALID_CREDENTIALS
             "email_not_confirmed" -> EMAIL_NOT_CONFIRMED
             "user_already_exists", "email_exists" -> ACCOUNT_EXISTS
             "weak_password" -> WEAK_PASSWORD
             "email_address_invalid", "validation_failed" -> INVALID_EMAIL
-            "over_request_rate_limit", "over_email_send_rate_limit" -> RATE_LIMITED
+            "over_request_rate_limit", "over_email_send_rate_limit", "rate_limited" -> RATE_LIMITED
             "signup_disabled", "email_provider_disabled" -> SIGNUP_DISABLED
             else -> UNKNOWN
         }

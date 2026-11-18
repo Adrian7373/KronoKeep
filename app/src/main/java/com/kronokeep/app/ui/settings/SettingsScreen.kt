@@ -16,6 +16,7 @@ import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.CloudDone
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.CloudSync
+import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material.icons.outlined.Contrast
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Info
@@ -51,6 +52,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.kronokeep.app.BuildConfig
+import com.kronokeep.app.domain.auth.DeleteAccountUseCase
 import com.kronokeep.app.domain.auth.SignOutUseCase
 import com.kronokeep.app.domain.repository.AuthRepository
 import com.kronokeep.app.domain.repository.AuthState
@@ -65,7 +67,10 @@ import com.kronokeep.app.ui.components.KronoTopBar
 import com.kronokeep.app.ui.components.SectionLabel
 import com.kronokeep.app.ui.theme.KronoTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -75,6 +80,7 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     authRepository: AuthRepository,
     private val signOutUseCase: SignOutUseCase,
+    private val deleteAccountUseCase: DeleteAccountUseCase,
     private val settingsRepository: SettingsRepository,
     private val syncRepository: SyncRepository,
 ) : ViewModel() {
@@ -90,6 +96,29 @@ class SettingsViewModel @Inject constructor(
 
     fun signOut() {
         viewModelScope.launch { signOutUseCase() }
+    }
+
+    private val _deleteAccount = MutableStateFlow<DeleteAccountUi?>(null)
+    val deleteAccount: StateFlow<DeleteAccountUi?> = _deleteAccount.asStateFlow()
+
+    fun openDeleteAccount() = _deleteAccount.update { it ?: DeleteAccountUi() }
+
+    fun dismissDeleteAccount() = _deleteAccount.update { if (it?.busy == true) it else null }
+
+    fun onDeletePasswordChange(value: String) = _deleteAccount.update { it?.copy(password = value, error = null) }
+
+    fun confirmDeleteAccount() {
+        val current = _deleteAccount.value?.takeIf { it.canSubmit } ?: return
+        _deleteAccount.value = current.copy(busy = true, error = null)
+        viewModelScope.launch {
+            deleteAccountUseCase(current.password).fold(
+                // Success signs out, which swaps this screen for sign-in.
+                onSuccess = { _deleteAccount.value = null },
+                onFailure = { e ->
+                    _deleteAccount.update { it?.copy(busy = false, error = DeleteAccountMessages.forFailure(e)) }
+                },
+            )
+        }
     }
 
     fun setThemeMode(mode: ThemeMode) {
@@ -125,6 +154,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val remindersOn by viewModel.remindersEnabled.collectAsStateWithLifecycle()
     val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
+    val deleteAccount by viewModel.deleteAccount.collectAsStateWithLifecycle()
     val context = LocalContext.current
     // Re-checked on resume: the user may have just changed it in system settings.
     var systemAllows by remember { mutableStateOf(true) }
@@ -158,6 +188,24 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                             title = "Sign out",
                             onClick = viewModel::signOut,
                         )
+                        GroupDivider()
+                        SettingsRow(
+                            icon = Icons.Outlined.DeleteForever,
+                            iconTint = KronoTheme.status.overdue,
+                            title = "Delete account",
+                            titleColor = KronoTheme.status.overdue,
+                            body = "Erase your vault from the cloud and this phone",
+                            onClick = viewModel::openDeleteAccount,
+                        )
+                        deleteAccount?.let { dialog ->
+                            DeleteAccountDialog(
+                                email = a.email,
+                                state = dialog,
+                                onPasswordChange = viewModel::onDeletePasswordChange,
+                                onConfirm = viewModel::confirmDeleteAccount,
+                                onDismiss = viewModel::dismissDeleteAccount,
+                            )
+                        }
                     }
                     else -> SettingsRow(
                         icon = Icons.Outlined.CloudOff,
@@ -242,12 +290,15 @@ private fun SettingsRow(
     title: String,
     body: String? = null,
     iconTint: Color? = null,
+    titleColor: Color? = null,
     bodyColor: Color? = null,
     trailing: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {
     ListItem(
-        headlineContent = { Text(title, style = MaterialTheme.typography.titleSmall) },
+        headlineContent = {
+            Text(title, style = MaterialTheme.typography.titleSmall, color = titleColor ?: Color.Unspecified)
+        },
         supportingContent = body?.let { { Text(it, color = bodyColor ?: MaterialTheme.colorScheme.onSurfaceVariant) } },
         leadingContent = {
             IconBadge(
