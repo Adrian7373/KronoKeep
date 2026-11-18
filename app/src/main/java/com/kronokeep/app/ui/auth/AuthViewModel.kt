@@ -17,6 +17,8 @@ import javax.inject.Inject
 enum class AuthMode {
     SIGN_IN,
     SIGN_UP,
+    /** After sign-up (or signing in unconfirmed): enter the emailed confirmation code. */
+    SIGNUP_CODE,
     /** Forgot password, step 1: enter the email to send a code to. */
     RESET_REQUEST,
     /** Step 2: enter the emailed code. */
@@ -48,7 +50,7 @@ data class AuthUiState(
         AuthMode.SIGN_UP -> AuthValidation.isValidEmail(email) &&
             AuthValidation.isValidPassword(password) && password == confirmPassword
         AuthMode.RESET_REQUEST -> AuthValidation.isValidEmail(email)
-        AuthMode.RESET_CODE -> AuthValidation.isValidRecoveryCode(code)
+        AuthMode.SIGNUP_CODE, AuthMode.RESET_CODE -> AuthValidation.isValidEmailCode(code)
         AuthMode.NEW_PASSWORD -> AuthValidation.isValidPassword(password) && password == confirmPassword
     }
 
@@ -57,6 +59,25 @@ data class AuthUiState(
         if (mode == target || (mode != AuthMode.SIGN_IN && mode != AuthMode.SIGN_UP)) return this
         return copy(mode = target, confirmPassword = "", error = null, info = null)
     }
+
+    /** Moves to the confirmation-code step; the passwords aren't needed any more, since the code signs in. */
+    fun toSignUpCode(info: String?, error: String? = null): AuthUiState = copy(
+        mode = AuthMode.SIGNUP_CODE,
+        password = "",
+        confirmPassword = "",
+        code = "",
+        isBusy = false,
+        info = info,
+        error = error,
+    )
+
+    /** An unconfirmed account goes to the code step instead of a dead-end error; null keeps the usual error. */
+    fun afterSignInFailure(e: Throwable): AuthUiState? =
+        if ((e as? AuthFailure)?.reason == AuthFailureReason.EMAIL_NOT_CONFIRMED) {
+            toSignUpCode(info = AuthMessages.NOT_CONFIRMED_YET)
+        } else {
+            null
+        }
 
     fun withAuthState(auth: AuthState): AuthUiState = when {
         auth is AuthState.PasswordRecovery && mode != AuthMode.NEW_PASSWORD -> copy(
@@ -79,13 +100,13 @@ object AuthValidation {
     private val EMAIL = Regex("""^[^\s@]+@[^\s@]+\.[^\s@]+$""")
     const val MIN_PASSWORD_LENGTH = 8
 
-    /** Supabase email OTPs are 6 digits by default; a project can raise that to 10. */
-    private val RECOVERY_CODE = Regex("""^\d{6,10}$""")
+    /** Supabase email OTPs (sign-up and recovery) are 6 digits by default; a project can raise that to 10. */
+    private val EMAIL_CODE = Regex("""^\d{6,10}$""")
     const val MAX_CODE_LENGTH = 10
 
     fun isValidEmail(email: String): Boolean = EMAIL.matches(email.trim())
     fun isValidPassword(password: String): Boolean = password.length >= MIN_PASSWORD_LENGTH
-    fun isValidRecoveryCode(code: String): Boolean = RECOVERY_CODE.matches(code)
+    fun isValidEmailCode(code: String): Boolean = EMAIL_CODE.matches(code)
 
     /** Keeps only digits, so a pasted "123 456" or "123-456" still works. */
     fun normalizeCode(input: String): String = input.filter(Char::isDigit).take(MAX_CODE_LENGTH)
@@ -97,7 +118,7 @@ object AuthMessages {
 
     fun forReason(reason: AuthFailureReason): String = when (reason) {
         AuthFailureReason.INVALID_CREDENTIALS -> "That email and password don't match. Check them and try again."
-        AuthFailureReason.EMAIL_NOT_CONFIRMED -> "Confirm your email first. The link is in your inbox."
+        AuthFailureReason.EMAIL_NOT_CONFIRMED -> "Confirm your email first with the code we sent you."
         AuthFailureReason.ACCOUNT_EXISTS -> "An account with this email already exists. Sign in instead."
         AuthFailureReason.WEAK_PASSWORD -> "Choose a stronger password."
         AuthFailureReason.INVALID_EMAIL -> "That email address can't be used. Check it and try again."
@@ -113,6 +134,13 @@ object AuthMessages {
     /** Deliberately the same whether or not the address has an account. */
     fun codeSent(email: String): String =
         "If an account exists for ${email.trim()}, we've emailed it a code. It can take a minute to arrive."
+
+    const val NOT_CONFIRMED_YET =
+        "This email isn't confirmed yet. Enter the code from your sign-up email, or send a new one."
+
+    /** Also shown when the address already had a confirmed account (the server sends nothing then, by design). */
+    fun signUpCodeSent(email: String): String =
+        "We've emailed a code to ${email.trim()}. It can take a minute to arrive."
 }
 
 @HiltViewModel
@@ -154,16 +182,18 @@ class AuthViewModel @Inject constructor(
         val current = _state.value
         if (!current.canSubmit) return
         when (current.mode) {
-            AuthMode.SIGN_IN, AuthMode.SIGN_UP -> launchCall(
-                call = {
-                    if (current.isSignUp) authRepository.signUp(current.email, current.password)
-                    else authRepository.signIn(current.email, current.password)
-                },
-                // On sign-up with email confirmation on, no session arrives; tell the user why.
-                onSuccess = {
-                    it.copy(info = if (current.isSignUp) "Check your inbox to confirm your email, then sign in." else null)
-                },
+            // With email confirmation on, no session arrives: the user types the emailed code next. With it
+            // off, the session opens the vault and this screen goes away.
+            AuthMode.SIGN_UP -> launchCall(
+                call = { authRepository.signUp(current.email, current.password) },
+                onSuccess = { it.toSignUpCode(info = AuthMessages.signUpCodeSent(current.email)) },
             )
+            AuthMode.SIGN_IN -> launchCall(
+                call = { authRepository.signIn(current.email, current.password) },
+                onFailure = AuthUiState::afterSignInFailure,
+            )
+            // Success: the session becomes SignedIn and the app opens the vault.
+            AuthMode.SIGNUP_CODE -> launchCall(call = { authRepository.verifySignUpCode(current.email, current.code) })
             AuthMode.RESET_REQUEST -> sendCode(current.email)
             // Success needs no UI change here: the PasswordRecovery state moves the screen on.
             AuthMode.RESET_CODE -> launchCall(call = { authRepository.verifyRecoveryCode(current.email, current.code) })
@@ -174,8 +204,15 @@ class AuthViewModel @Inject constructor(
 
     fun resendCode() {
         val current = _state.value
-        if (current.isBusy || current.mode != AuthMode.RESET_CODE) return
-        sendCode(current.email)
+        if (current.isBusy) return
+        when (current.mode) {
+            AuthMode.RESET_CODE -> sendCode(current.email)
+            AuthMode.SIGNUP_CODE -> launchCall(
+                call = { authRepository.resendSignUpCode(current.email) },
+                onSuccess = { it.copy(code = "", info = AuthMessages.signUpCodeSent(current.email)) },
+            )
+            else -> Unit
+        }
     }
 
     /** Leaves the new-password step; the SignedOut state that follows returns the screen to sign-in. */
@@ -189,17 +226,20 @@ class AuthViewModel @Inject constructor(
         onSuccess = { it.copy(mode = AuthMode.RESET_CODE, code = "", info = AuthMessages.codeSent(email)) },
     )
 
+    /** [onFailure] may take over a failure by returning a new state; null shows the usual error. */
     private fun launchCall(
         call: suspend () -> Result<Unit>,
         onSuccess: (AuthUiState) -> AuthUiState = { it },
+        onFailure: (AuthUiState, Throwable) -> AuthUiState? = { _, _ -> null },
     ) {
         _state.update { it.copy(isBusy = true, error = null, info = null) }
         viewModelScope.launch {
             val result = call()
             _state.update { state ->
+                val idle = state.copy(isBusy = false)
                 result.fold(
-                    onSuccess = { onSuccess(state.copy(isBusy = false)) },
-                    onFailure = { e -> state.copy(isBusy = false, error = AuthMessages.forFailure(e)) },
+                    onSuccess = { onSuccess(idle) },
+                    onFailure = { e -> onFailure(idle, e) ?: idle.copy(error = AuthMessages.forFailure(e)) },
                 )
             }
         }

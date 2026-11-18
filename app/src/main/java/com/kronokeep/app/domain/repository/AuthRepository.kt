@@ -27,8 +27,17 @@ interface AuthRepository {
 
     suspend fun signIn(email: String, password: String): Result<Unit>
 
-    /** Returns success even when the project requires email confirmation (state stays SignedOut). */
+    /**
+     * Returns success even when the project requires email confirmation (state stays SignedOut); the email
+     * then carries a code for [verifySignUpCode].
+     */
     suspend fun signUp(email: String, password: String): Result<Unit>
+
+    /** Confirms the account with the emailed code. On success the user is signed in. */
+    suspend fun verifySignUpCode(email: String, code: String): Result<Unit>
+
+    /** Emails a fresh confirmation code to an account that hasn't been confirmed yet. */
+    suspend fun resendSignUpCode(email: String): Result<Unit>
 
     suspend fun signOut(): Result<Unit>
 

@@ -135,6 +135,8 @@ class FakeAuth(initial: AuthState = AuthState.SignedIn("user-1", "me@example.com
     override val state: MutableStateFlow<AuthState> = MutableStateFlow(initial)
     override suspend fun signIn(email: String, password: String) = Result.success(Unit)
     override suspend fun signUp(email: String, password: String) = Result.success(Unit)
+    override suspend fun verifySignUpCode(email: String, code: String) = Result.success(Unit)
+    override suspend fun resendSignUpCode(email: String) = Result.success(Unit)
     override suspend fun signOut() = Result.success(Unit).also { state.value = AuthState.SignedOut }
     override suspend fun requestPasswordReset(email: String) = Result.success(Unit)
     override suspend fun verifyRecoveryCode(email: String, code: String) = Result.success(Unit)
