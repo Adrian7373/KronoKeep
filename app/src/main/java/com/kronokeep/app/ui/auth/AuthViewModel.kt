@@ -80,6 +80,9 @@ data class AuthUiState(
         }
 
     fun withAuthState(auth: AuthState): AuthUiState = when {
+        // The view model is activity-scoped and outlives the session, so drop everything typed once one opens:
+        // otherwise signing out (or deleting the account) shows the last email and password again.
+        auth is AuthState.SignedIn -> if (this == BLANK) this else BLANK
         auth is AuthState.PasswordRecovery && mode != AuthMode.NEW_PASSWORD -> copy(
             mode = AuthMode.NEW_PASSWORD,
             email = auth.email ?: email,
@@ -93,6 +96,10 @@ data class AuthUiState(
         auth == AuthState.SignedOut && mode == AuthMode.NEW_PASSWORD ->
             copy(mode = AuthMode.SIGN_IN, password = "", confirmPassword = "", isBusy = false)
         else -> this
+    }
+
+    private companion object {
+        val BLANK = AuthUiState()
     }
 }
 
@@ -186,7 +193,10 @@ class AuthViewModel @Inject constructor(
             // off, the session opens the vault and this screen goes away.
             AuthMode.SIGN_UP -> launchCall(
                 call = { authRepository.signUp(current.email, current.password) },
-                onSuccess = { it.toSignUpCode(info = AuthMessages.signUpCodeSent(current.email)) },
+                // Skipped when a session already opened (confirmation off) and cleared the form.
+                onSuccess = {
+                    if (it.mode == AuthMode.SIGN_UP) it.toSignUpCode(info = AuthMessages.signUpCodeSent(current.email)) else it
+                },
             )
             AuthMode.SIGN_IN -> launchCall(
                 call = { authRepository.signIn(current.email, current.password) },
