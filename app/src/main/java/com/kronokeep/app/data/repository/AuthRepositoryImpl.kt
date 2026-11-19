@@ -2,6 +2,8 @@ package com.kronokeep.app.data.repository
 
 import com.kronokeep.app.data.remote.SupabaseProvider
 import com.kronokeep.app.di.ApplicationScope
+import com.kronokeep.app.domain.auth.VaultOwnership
+import com.kronokeep.app.domain.auth.gatedBy
 import com.kronokeep.app.domain.repository.AuthFailure
 import com.kronokeep.app.domain.repository.AuthFailureReason
 import com.kronokeep.app.domain.repository.AuthRepository
@@ -37,6 +39,7 @@ import javax.inject.Singleton
 class AuthRepositoryImpl @Inject constructor(
     private val provider: SupabaseProvider,
     @ApplicationScope scope: CoroutineScope,
+    ownership: VaultOwnership,
 ) : AuthRepository {
 
     /** True from the moment a recovery code is submitted until the new password is saved or the reset is cancelled. */
@@ -46,6 +49,8 @@ class AuthRepositoryImpl @Inject constructor(
         ?.auth
         ?.sessionStatus
         ?.combine(recovering) { status, recovering -> AuthState.withRecovery(status.toAuthState(), recovering) }
+        // A different account's session waits as Loading while the phone's vault is erased for it.
+        ?.gatedBy(ownership)
         ?.stateIn(scope, SharingStarted.Eagerly, AuthState.Loading)
         ?: MutableStateFlow<AuthState>(AuthState.Unconfigured).asStateFlow()
 

@@ -1,6 +1,9 @@
 package com.kronokeep.app.data.push
 
+import com.kronokeep.app.domain.auth.LocalVault
 import com.kronokeep.app.domain.auth.SignOutUseCase
+import com.kronokeep.app.domain.auth.VaultOwnership
+import com.kronokeep.app.domain.repository.LocalDataEraser
 import com.kronokeep.app.domain.repository.AuthState
 import com.kronokeep.app.testing.FakeAuth
 import kotlinx.coroutines.CoroutineScope
@@ -95,9 +98,20 @@ class PushTokenRegistrarTest {
     @Test fun `sign out unregisters before the session goes`() = runBlocking {
         registrar.ensureRegistered("user-1")
         remote.onUnregister = { assertTrue(auth.state.value is AuthState.SignedIn) }
-        SignOutUseCase(auth, registrar)()
+        SignOutUseCase(auth, registrar, VaultOwnership(NoVault, NoEraser))()
         assertEquals(listOf("tok-1"), remote.unregistered)
         assertEquals(AuthState.SignedOut, auth.state.value)
+    }
+
+    private object NoVault : LocalVault {
+        override suspend fun owner(): String? = null
+        override suspend fun setOwner(userId: String) = Unit
+        override suspend fun clearOwner() = Unit
+        override suspend fun holdsRowsOfAnotherAccount(userId: String) = false
+    }
+
+    private object NoEraser : LocalDataEraser {
+        override suspend fun eraseAll() = Unit
     }
 
     private class FakeTokenSource(var token: String? = "tok-1") : PushTokenSource {

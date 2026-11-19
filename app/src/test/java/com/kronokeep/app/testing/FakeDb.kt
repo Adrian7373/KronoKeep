@@ -161,6 +161,9 @@ class FakeDb : TransactionRunner {
     }
 
     val assetDao = object : AssetDao {
+        override suspend fun hasRowsOwnedByOtherThan(userId: String): Boolean =
+            assets.value.values.any { it.userId != null && it.userId != userId }
+
         override fun observeActive(): Flow<List<AssetEntity>> = assets.map { m ->
             m.values.filter { it.deletedAt == null && it.archivedAt == null }.sortedByDescending { it.updatedAt }
         }

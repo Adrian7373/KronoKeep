@@ -31,6 +31,10 @@ interface AssetDao {
     @Query("SELECT id FROM assets WHERE userId IS NULL")
     suspend fun unownedIds(): List<String>
 
+    /** Every other synced row hangs off an asset of the same owner, so assets alone say whose vault this is. */
+    @Query("SELECT EXISTS(SELECT 1 FROM assets WHERE userId IS NOT NULL AND userId != :userId)")
+    suspend fun hasRowsOwnedByOtherThan(userId: String): Boolean
+
     @Upsert
     suspend fun upsert(asset: AssetEntity)
 }

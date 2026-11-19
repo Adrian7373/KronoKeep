@@ -28,6 +28,8 @@ import com.kronokeep.app.data.document.AndroidDocumentImporter
 import com.kronokeep.app.data.document.DiskFileStore
 import com.kronokeep.app.data.document.LocalFileStore
 import com.kronokeep.app.data.local.AndroidLocalDataEraser
+import com.kronokeep.app.data.local.RoomLocalVault
+import com.kronokeep.app.domain.auth.LocalVault
 import com.kronokeep.app.data.local.KronoDatabase
 import com.kronokeep.app.domain.repository.LocalDataEraser
 import com.kronokeep.app.data.local.RoomTransactionRunner
@@ -164,4 +166,5 @@ abstract class RepositoryModule {
     @Binds abstract fun bindPushTokenRemote(impl: SupabasePushTokenRemote): PushTokenRemote
     @Binds abstract fun bindPushRegistrationStore(impl: DataStorePushRegistrationStore): PushRegistrationStore
     @Binds abstract fun bindPushRegistration(impl: PushTokenRegistrar): PushRegistration
+    @Binds abstract fun bindLocalVault(impl: RoomLocalVault): LocalVault
 }
