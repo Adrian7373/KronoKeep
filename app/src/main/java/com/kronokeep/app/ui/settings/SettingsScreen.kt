@@ -35,6 +35,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -183,11 +185,34 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                             SyncRow(it, onSyncNow = viewModel::syncNow)
                         }
                         GroupDivider()
+                        var signOutWarning by rememberSaveable { mutableStateOf<String?>(null) }
                         SettingsRow(
                             icon = Icons.AutoMirrored.Outlined.Logout,
                             title = "Sign out",
-                            onClick = viewModel::signOut,
+                            body = "Removes your vault from this phone. It stays in the cloud.",
+                            onClick = {
+                                val warning = syncStatus.signOutWarning()
+                                if (warning == null) viewModel.signOut() else signOutWarning = warning
+                            },
                         )
+                        signOutWarning?.let { warning ->
+                            AlertDialog(
+                                onDismissRequest = { signOutWarning = null },
+                                title = { Text("Sign out and lose unsynced changes?") },
+                                text = { Text(warning) },
+                                confirmButton = {
+                                    TextButton(
+                                        onClick = {
+                                            signOutWarning = null
+                                            viewModel.signOut()
+                                        },
+                                    ) { Text("Sign out anyway", color = KronoTheme.status.overdue) }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { signOutWarning = null }) { Text("Cancel") }
+                                },
+                            )
+                        }
                         GroupDivider()
                         SettingsRow(
                             icon = Icons.Outlined.DeleteForever,

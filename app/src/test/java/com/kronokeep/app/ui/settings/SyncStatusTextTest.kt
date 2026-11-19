@@ -26,4 +26,22 @@ class SyncStatusTextTest {
         assertEquals("2 changes couldn't sync. Editing the item tries again.", status(pending = 4, rejected = 2))
 
     @Test fun runningWins() = assertEquals("Syncing…", status(pending = 2, rejected = 1, running = true))
+
+    @Test fun signOutNeedsNoWarningWhenEverythingSynced() {
+        assertEquals(null, SyncStatus(0, 0, at, false).signOutWarning())
+        assertEquals(null, (null as SyncStatus?).signOutWarning())
+    }
+
+    @Test fun signOutWarnsAboutPendingAndRejectedChanges() {
+        assertEquals(
+            "1 change on this phone hasn't reached the cloud. Signing out removes your vault from this phone, " +
+                "so it will be lost. Connect to the internet and sync first to keep it.",
+            SyncStatus(1, 0, at, false).signOutWarning(),
+        )
+        assertEquals(
+            "3 changes on this phone haven't reached the cloud. Signing out removes your vault from this phone, " +
+                "so they will be lost. Connect to the internet and sync first to keep them.",
+            SyncStatus(2, 1, at, false).signOutWarning(),
+        )
+    }
 }
